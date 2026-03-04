@@ -1,11 +1,15 @@
 // src/app/api/synthese/route.ts
 import { NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
-import { getMoyenne, getMention, computeElevesAvecRangs } from '@/lib/utils'
+import { computeElevesAvecRangs } from '@/lib/utils'
 
-// GET /api/synthese?niveau=CI&div=A&compo=1
 export async function GET(req: Request) {
   try {
+    const session = await getServerSession(authOptions)
+    if (!session) return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
+
     const { searchParams } = new URL(req.url)
     const niveau = searchParams.get('niveau')
     const div = searchParams.get('div')
@@ -15,13 +19,16 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Paramètres manquants' }, { status: 400 })
     }
 
-    // Récupérer tout le nécessaire
+    // Maître : accès uniquement à sa classe
+    if (session.user.role === 'maitre') {
+      if (session.user.niveau !== niveau || session.user.div !== div) {
+        return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
+      }
+    }
+
     const [eleves, matieres, notes] = await Promise.all([
       prisma.eleve.findMany({ where: { niveau, div }, orderBy: { nom: 'asc' } }),
-      prisma.matiere.findMany({ orderBy: { ordre: 'asc' } }),
-      prisma.note.findMany({
-        where: { compo, eleve: { niveau, div } },
-      }),
+prisma.matiere.findMany({ where: { niveau, div }, orderBy: { ordre: 'asc' } }),      prisma.note.findMany({ where: { compo, eleve: { niveau, div } } }),
     ])
 
     const elevesAvecRangs = computeElevesAvecRangs(eleves as any, notes as any, matieres as any)
@@ -31,7 +38,6 @@ export async function GET(req: Request) {
       ? Math.round((avecNote.reduce((s, e) => s + (e.moyenne ?? 0), 0) / avecNote.length) * 100) / 100
       : null
 
-    // Stats par matière
     const matiereStats = matieres.map((m) => {
       const notesMat = notes.filter((n) => n.matiereId === m.id && n.valeur !== null).map((n) => n.valeur as number)
       return {

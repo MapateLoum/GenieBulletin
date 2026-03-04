@@ -16,8 +16,11 @@ export default function ElevesPage() {
 
   const { data: eleves = [], isLoading } = useQuery<Eleve[]>({
     queryKey: ['eleves', niveau, div],
-    queryFn: () => fetch(`/api/eleves?niveau=${niveau}&div=${div}`).then(r => r.json()),
-  })
+queryFn: async () => {
+  const r = await fetch(`/api/eleves?niveau=${niveau}&div=${div}`)
+  if (!r.ok) return []
+  return r.json()
+},  })
 
   const addEleve = useMutation({
     mutationFn: (data: { nom: string; sexe: string; niveau: string; div: string }) =>

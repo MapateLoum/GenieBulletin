@@ -19,12 +19,15 @@ export default function BulletinsPage() {
   })
   const { data: eleves = [] } = useQuery<Eleve[]>({
     queryKey: ['eleves', niveau, div],
-    queryFn: () => fetch(`/api/eleves?niveau=${niveau}&div=${div}`).then(r => r.json()),
-  })
+queryFn: async () => {
+  const r = await fetch(`/api/eleves?niveau=${niveau}&div=${div}`)
+  if (!r.ok) return []
+  return r.json()
+},   })
   const { data: matieres = [] } = useQuery<Matiere[]>({
-    queryKey: ['matieres'],
-    queryFn: () => fetch('/api/matieres').then(r => r.json()),
-  })
+  queryKey: ['matieres', niveau, div],
+  queryFn: () => fetch(`/api/matieres?niveau=${niveau}&div=${div}`).then(r => r.json()),
+})
   const { data: notes = [] } = useQuery<Note[]>({
     queryKey: ['notes', niveau, div, compo],
     queryFn: () => fetch(`/api/notes?niveau=${niveau}&div=${div}&compo=${compo}`).then(r => r.json()),

@@ -22,6 +22,8 @@ export interface Matiere {
   coef: number
   bareme: number
   ordre: number
+  niveau: string  // ← ajouter
+  div: string     // ← ajouter
 }
 
 export interface Eleve {

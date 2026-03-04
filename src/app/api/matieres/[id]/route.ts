@@ -1,5 +1,7 @@
 // src/app/api/matieres/[id]/route.ts
 import { NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
 export async function DELETE(
@@ -7,9 +9,21 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const session = await getServerSession(authOptions)
+    if (!session) return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
+
     const { id: rawId } = await params
     const id = parseInt(rawId)
     if (isNaN(id)) return NextResponse.json({ error: 'ID invalide' }, { status: 400 })
+
+    // Vérifier que la matière appartient à la classe du maître
+    if (session.user.role === 'maitre') {
+      const mat = await prisma.matiere.findUnique({ where: { id } })
+      if (!mat || mat.niveau !== session.user.niveau || mat.div !== session.user.div) {
+        return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
+      }
+    }
+
     await prisma.matiere.delete({ where: { id } })
     return NextResponse.json({ success: true })
   } catch {
@@ -22,8 +36,20 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const session = await getServerSession(authOptions)
+    if (!session) return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
+
     const { id: rawId } = await params
     const id = parseInt(rawId)
+
+    // Vérifier que la matière appartient à la classe du maître
+    if (session.user.role === 'maitre') {
+      const mat = await prisma.matiere.findUnique({ where: { id } })
+      if (!mat || mat.niveau !== session.user.niveau || mat.div !== session.user.div) {
+        return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
+      }
+    }
+
     const body = await req.json()
     const matiere = await prisma.matiere.update({ where: { id }, data: body })
     return NextResponse.json(matiere)

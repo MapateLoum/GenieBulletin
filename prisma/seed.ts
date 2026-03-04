@@ -1,12 +1,13 @@
 // prisma/seed.ts
 import { PrismaClient } from '@prisma/client'
+import bcrypt from 'bcryptjs'
 
 const prisma = new PrismaClient()
 
 async function main() {
   console.log('🌱 Seeding database...')
 
-  // Config par défaut
+  // ── Config par défaut ─────────────────────────────────────
   const configCount = await prisma.config.count()
   if (configCount === 0) {
     await prisma.config.create({
@@ -23,24 +24,33 @@ async function main() {
     console.log('✅ Config créée')
   }
 
-  // Matières par défaut (programme Sénégal primaire)
-  const matiereCount = await prisma.matiere.count()
-  if (matiereCount === 0) {
-    await prisma.matiere.createMany({
-      data: [
-        { nom: "Langue et Communication",   coef: 4, bareme: 10, ordre: 1 },
-        { nom: "Mathématiques",             coef: 4, bareme: 10, ordre: 2 },
-        { nom: "Sciences d'Observation",    coef: 2, bareme: 10, ordre: 3 },
-        { nom: "Histoire-Géographie",       coef: 2, bareme: 10, ordre: 4 },
-        { nom: "Instruction Civique",       coef: 1, bareme: 10, ordre: 5 },
-        { nom: "Dessin / Travaux Manuels",  coef: 1, bareme: 10, ordre: 6 },
-        { nom: "Éducation Physique",        coef: 1, bareme: 10, ordre: 7 },
-      ],
+  // ── Compte directeur ──────────────────────────────────────
+  const directeurExiste = await prisma.user.findUnique({
+    where: { email: 'directeur@geniebulletin.sn' }
+  })
+
+  if (!directeurExiste) {
+    const hash = await bcrypt.hash('directeur123', 12)
+    await prisma.user.create({
+      data: {
+        email: 'directeur@geniebulletin.sn',
+        password: hash,
+        nom: 'Directeur',
+        role: 'directeur',
+        niveau: null,
+        div: null,
+      }
     })
-    console.log('✅ Matières créées')
+    console.log('✅ Compte directeur créé')
+    console.log('📧 Email    : directeur@geniebulletin.sn')
+    console.log('🔑 Password : directeur123')
+    console.log('⚠️  Changez le mot de passe après la première connexion !')
+  } else {
+    console.log('✅ Directeur existe déjà')
   }
 
-  console.log('🎉 Seed terminé!')
+  console.log('🎉 Seed terminé !')
+  console.log('ℹ️  Les matières sont maintenant créées par chaque maître dans sa classe.')
 }
 
 main()

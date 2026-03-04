@@ -1,5 +1,7 @@
 // src/app/api/eleves/route.ts
 import { NextResponse } from 'next/server'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
 
@@ -10,11 +12,27 @@ const EleveSchema = z.object({
   div:    z.enum(['A', 'B']),
 })
 
+// Vérifie que l'utilisateur a accès à cette classe
+function peutAcceder(session: any, niveau: string, div: string): boolean {
+  if (session.user.role === 'directeur') return true
+  return session.user.niveau === niveau && session.user.div === div
+}
+
 export async function GET(req: Request) {
   try {
+    const session = await getServerSession(authOptions)
+    if (!session) return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
+
     const { searchParams } = new URL(req.url)
     const niveau = searchParams.get('niveau')
     const div = searchParams.get('div')
+
+    // Un maître ne peut voir que sa classe
+    if (session.user.role === 'maitre') {
+      if (!niveau || !div || !peutAcceder(session, niveau, div)) {
+        return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
+      }
+    }
 
     const where: Record<string, string> = {}
     if (niveau) where.niveau = niveau
@@ -32,8 +50,17 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
+    const session = await getServerSession(authOptions)
+    if (!session) return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
+
     const body = await req.json()
     const data = EleveSchema.parse(body)
+
+    // Vérifier accès à la classe
+    if (!peutAcceder(session, data.niveau, data.div)) {
+      return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
+    }
+
     const eleve = await prisma.eleve.create({ data })
     return NextResponse.json(eleve, { status: 201 })
   } catch (e) {
