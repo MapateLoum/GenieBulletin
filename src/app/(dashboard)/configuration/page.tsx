@@ -185,7 +185,7 @@ export default function ConfigurationPage() {
               onChange={e => setNewMat(m => ({ ...m, nom: e.target.value }))} />
           </Field>
           <Field label="Coefficient">
-            <input type="number" min={1} max={10} value={newMat.coef} style={{ width: 100 }}
+            <input type="number" min={0} max={10} value={newMat.coef} style={{ width: 100 }}
               onChange={e => setNewMat(m => ({ ...m, coef: parseInt(e.target.value) || 0 }))} />
           </Field>
           <Field label="Noté sur">
