@@ -20,6 +20,9 @@ const dmSans = DM_Sans({
 export const metadata: Metadata = {
   title: 'GénieBulletin — École Primaire Sénégal',
   description: 'Gestion des bulletins scolaires pour les écoles primaires du Sénégal',
+  icons: {
+    icon: '/sukuna-electric-3840x2160-22504.jpg',  // nom de votre fichier
+  },
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
