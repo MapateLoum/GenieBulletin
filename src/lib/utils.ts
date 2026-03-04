@@ -14,7 +14,7 @@ export function getMoyenne(
       (n) => n.eleveId === eleveId && n.matiereId === m.id
     )
     if (note?.valeur !== undefined && note.valeur !== null) {
-      totalPts += (note.valeur / m.bareme) * 20 * m.coef
+      totalPts += (note.valeur / m.bareme) * 10 * m.coef
       totalCoef += m.coef
     }
   }
@@ -25,11 +25,11 @@ export function getMoyenne(
 
 export function getMention(moy: number | null): Mention {
   if (moy === null) return { label: '—', cls: '' }
-  if (moy >= 18) return { label: 'Excellent', cls: 'mention-excellent' }
-  if (moy >= 16) return { label: 'Très Bien', cls: 'mention-tbi' }
-  if (moy >= 14) return { label: 'Bien', cls: 'mention-bi' }
-  if (moy >= 12) return { label: 'Assez Bien', cls: 'mention-ab' }
-  if (moy >= 10) return { label: 'Passable', cls: 'mention-pc' }
+  if (moy >= 9)  return { label: 'Excellent',  cls: 'mention-excellent' }
+  if (moy >= 8)  return { label: 'Très Bien',  cls: 'mention-tbi' }
+  if (moy >= 7)  return { label: 'Bien',        cls: 'mention-bi' }
+  if (moy >= 6)  return { label: 'Assez Bien',  cls: 'mention-ab' }
+  if (moy >= 5)  return { label: 'Passable',    cls: 'mention-pc' }
   return { label: 'Insuffisant', cls: 'mention-insuf' }
 }
 
@@ -46,19 +46,29 @@ export function computeElevesAvecRangs(
     aMoyenne: false,
   }))
 
-  // Calculer les rangs
   const avecNote = avecMoy
     .filter((e) => e.moyenne !== null)
     .sort((a, b) => (b.moyenne ?? 0) - (a.moyenne ?? 0))
 
+  // Ex-æquo : même moyenne = même rang, rang suivant sans saut
+  let rangActuel = 1
   avecNote.forEach((e, i) => {
-    e.rang = i + 1
+    if (i === 0) {
+      e.rang = 1
+    } else {
+      if (e.moyenne === avecNote[i - 1].moyenne) {
+        e.rang = avecNote[i - 1].rang  // ex-æquo, même rang
+      } else {
+        rangActuel++                   // rang suivant sans saut
+        e.rang = rangActuel
+      }
+    }
   })
 
   return avecMoy.map((e) => ({
     ...e,
     mention: getMention(e.moyenne),
-    aMoyenne: e.moyenne !== null ? e.moyenne >= 10 : false,
+    aMoyenne: e.moyenne !== null ? e.moyenne >= 5 : false,
   }))
 }
 

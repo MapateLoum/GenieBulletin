@@ -54,7 +54,7 @@ export default function SynthesePage() {
         <td style="font-weight:700;color:#c8972a;padding:8px 10px;border-bottom:1px solid #eee">${e.rang ? `#${e.rang}` : '—'}</td>
         <td style="padding:8px 10px;border-bottom:1px solid #eee"><strong>${e.nom}</strong></td>
         <td style="padding:8px 10px;border-bottom:1px solid #eee;text-align:center">${e.sexe}</td>
-        <td style="padding:8px 10px;border-bottom:1px solid #eee;text-align:center"><strong>${e.moyenne !== null ? `${e.moyenne}/20` : '—'}</strong></td>
+        <td style="padding:8px 10px;border-bottom:1px solid #eee;text-align:center"><strong>${e.moyenne !== null ? `${e.moyenne}/10` : '—'}</strong></td>
         <td style="padding:8px 10px;border-bottom:1px solid #eee;text-align:center">
           <span style="background:${mentionBg};padding:2px 8px;border-radius:12px;font-size:0.78rem;font-weight:700">${e.mention?.label ?? '—'}</span>
         </td>
@@ -124,7 +124,7 @@ export default function SynthesePage() {
       <div class="stat-val">${data.stats.effectif}</div><div class="stat-lbl">Effectif total</div>
     </div>
     <div class="stat-box" style="background:linear-gradient(135deg,#c8972a,#e0a830)">
-      <div class="stat-val">${data.stats.moyenneClasse !== null ? `${data.stats.moyenneClasse}/20` : '—'}</div><div class="stat-lbl">Moyenne de classe</div>
+      <div class="stat-val">${data.stats.moyenneClasse !== null ? `${data.stats.moyenneClasse}/10` : '—'}</div><div class="stat-lbl">Moyenne de classe</div>
     </div>
     <div class="stat-box" style="background:linear-gradient(135deg,#1a6b3a,#2d9a56)">
       <div class="stat-val">${data.stats.avecMoyenne}</div><div class="stat-lbl">Ont la moyenne</div>
@@ -149,7 +149,7 @@ export default function SynthesePage() {
   <table>
     <thead><tr>
       <th>Rang</th><th>Nom et Prénom</th><th style="text-align:center">Sexe</th>
-      <th style="text-align:center">Moy./20</th><th style="text-align:center">Mention</th>
+      <th style="text-align:center">Moy./10</th><th style="text-align:center">Mention</th>
       <th style="text-align:center">A la moyenne</th>
     </tr></thead>
     <tbody>${rowsHTML}</tbody>
@@ -210,7 +210,7 @@ export default function SynthesePage() {
           {/* Stats globales */}
           <StatsGrid>
             <StatCard value={data.stats.effectif} label="Effectif total" color="vert" />
-            <StatCard value={data.stats.moyenneClasse !== null ? `${data.stats.moyenneClasse}/20` : '—'} label="Moyenne de classe" color="or" />
+            <StatCard value={data.stats.moyenneClasse !== null ? `${data.stats.moyenneClasse}/10` : '—'} label="Moyenne de classe" color="or" />
             <StatCard value={data.stats.avecMoyenne} label="Ont la moyenne" color="vert" />
             <StatCard value={data.stats.sansMoyenne} label="N'ont pas la moyenne" color="rouge" />
             <StatCard value={data.stats.maxMoyenne ?? '—'} label="Meilleure note" color="bleu" />
@@ -228,7 +228,7 @@ export default function SynthesePage() {
                   <th>Rang</th>
                   <th>Nom et Prénom</th>
                   <th>Sexe</th>
-                  <th>Moy./20</th>
+                  <th>Moy./10</th>
                   <th>Mention</th>
                   <th>Moyenne</th>
                 </tr>
@@ -241,7 +241,7 @@ export default function SynthesePage() {
                       <td className="rank-cell">{e.rang ? `#${e.rang}` : '—'}</td>
                       <td><strong>{e.nom}</strong></td>
                       <td>{e.sexe}</td>
-                      <td><strong>{e.moyenne !== null ? `${e.moyenne}/20` : '—'}</strong></td>
+                      <td><strong>{e.moyenne !== null ? `${e.moyenne}/10` : '—'}</strong></td>
                       <td>
                         {e.mention?.label && e.mention.label !== '—'
                           ? <span className={`mention ${e.mention.cls}`}>{e.mention.label}</span>

@@ -7,7 +7,6 @@ import { Card, FormGrid, Field } from '@/components/ui/Card'
 import { NIVEAUX, DIVISIONS } from '@/lib/utils'
 import type { Config, Matiere } from '@/types'
 
-// ── API helpers ───────────────────────────────────────────────
 const fetchConfig = (): Promise<Config> => fetch('/api/config').then(r => r.json())
 const fetchMatieres = (): Promise<Matiere[]> => fetch('/api/matieres').then(r => r.json())
 
@@ -21,7 +20,7 @@ export default function ConfigurationPage() {
     classeActive: 'CI', divActive: 'A',
   })
 
-  const [newMat, setNewMat] = useState({ nom: '', coef: 0, bareme: 20 })
+  const [newMat, setNewMat] = useState({ nom: '', coef: 0, bareme: 0 })
 
   useEffect(() => {
     if (config) setForm({ ...form, ...config })
@@ -41,7 +40,7 @@ export default function ConfigurationPage() {
       fetch('/api/matieres', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }).then(r => r.json()),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['matieres'] })
-      setNewMat({ nom: '', coef: 1, bareme: 20 })
+      setNewMat({ nom: '', coef: 0, bareme: 0 })
       toast.success('Matière ajoutée')
     },
   })
@@ -65,6 +64,8 @@ export default function ConfigurationPage() {
 
   function handleAddMatiere() {
     if (!newMat.nom.trim()) { toast.error('Entrez le nom de la matière'); return }
+    if (!newMat.coef || newMat.coef < 1) { toast.error('Entrez un coefficient valide'); return }
+    if (!newMat.bareme || newMat.bareme < 1) { toast.error('Entrez un barème valide'); return }
     addMatiere.mutate(newMat)
   }
 
@@ -152,18 +153,18 @@ export default function ConfigurationPage() {
                       <button
                         className="btn btn-danger btn-sm"
                         onClick={() => {
-  toast((t) => (
-    <span>
-      Supprimer <strong>{m.nom}</strong> ?{' '}
-      <button className="btn btn-danger btn-sm" onClick={() => { deleteMatiere.mutate(m.id); toast.dismiss(t.id) }}>
-        Confirmer
-      </button>{' '}
-      <button className="btn btn-secondary btn-sm" onClick={() => toast.dismiss(t.id)}>
-        Annuler
-      </button>
-    </span>
-  ), { duration: 5000 })
-}}
+                          toast((t) => (
+                            <span>
+                              Supprimer <strong>{m.nom}</strong> ?{' '}
+                              <button className="btn btn-danger btn-sm" onClick={() => { deleteMatiere.mutate(m.id); toast.dismiss(t.id) }}>
+                                Confirmer
+                              </button>{' '}
+                              <button className="btn btn-secondary btn-sm" onClick={() => toast.dismiss(t.id)}>
+                                Annuler
+                              </button>
+                            </span>
+                          ), { duration: 5000 })
+                        }}
                       >
                         🗑️
                       </button>
@@ -186,23 +187,31 @@ export default function ConfigurationPage() {
           </Field>
           <Field label="Coefficient">
             <input
-            type="text"
-            inputMode="numeric"
-            pattern="[0-9]*"
-            placeholder="Ex : 2"
-            value={newMat.coef === 0 ? '' : newMat.coef}
-            style={{ width: 100 }}
-            onChange={e => {
-              const val = e.target.value.replace(/[^0-9]/g, '')
-              setNewMat(m => ({ ...m, coef: val === '' ? 0 : parseInt(val) }))
-            }}/>
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              placeholder="Ex : 2"
+              value={newMat.coef === 0 ? '' : newMat.coef}
+              style={{ width: 100 }}
+              onChange={e => {
+                const val = e.target.value.replace(/[^0-9]/g, '')
+                setNewMat(m => ({ ...m, coef: val === '' ? 0 : parseInt(val) }))
+              }}
+            />
           </Field>
           <Field label="Noté sur">
-            <select value={newMat.bareme} onChange={e => setNewMat(m => ({ ...m, bareme: parseInt(e.target.value) }))}>
-              <option value={10}>10</option>
-              <option value={20}>20</option>
-              <option value={100}>100</option>
-            </select>
+            <input
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              placeholder="Ex : 20"
+              value={newMat.bareme === 0 ? '' : newMat.bareme}
+              style={{ width: 100 }}
+              onChange={e => {
+                const val = e.target.value.replace(/[^0-9]/g, '')
+                setNewMat(m => ({ ...m, bareme: val === '' ? 0 : parseInt(val) }))
+              }}
+            />
           </Field>
           <div style={{ display: 'flex', alignItems: 'flex-end' }}>
             <button className="btn btn-primary" onClick={handleAddMatiere}>
