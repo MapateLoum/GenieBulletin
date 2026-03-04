@@ -76,7 +76,10 @@ input:focus, select:focus, textarea:focus {
   box-shadow: 0 0 0 3px rgba(26,107,58,0.1);
 }
 textarea { resize: vertical; min-height: 70px; }
-input[type=number] { -moz-appearance: textfield; }
+input[type=number] {
+  -moz-appearance: textfield;
+  appearance: textfield; /* standard */
+}
 input[type=number]::-webkit-inner-spin-button { opacity: 0.5; }
 
 /* TABLES */
