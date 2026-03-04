@@ -21,7 +21,7 @@ export default function ConfigurationPage() {
     classeActive: 'CI', divActive: 'A',
   })
 
-  const [newMat, setNewMat] = useState({ nom: '', coef: 1, bareme: 20 })
+  const [newMat, setNewMat] = useState({ nom: '', coef: 0, bareme: 20 })
 
   useEffect(() => {
     if (config) setForm({ ...form, ...config })
@@ -185,8 +185,17 @@ export default function ConfigurationPage() {
               onChange={e => setNewMat(m => ({ ...m, nom: e.target.value }))} />
           </Field>
           <Field label="Coefficient">
-            <input type="number" min={0} max={10} value={newMat.coef} style={{ width: 100 }}
-              onChange={e => setNewMat(m => ({ ...m, coef: parseInt(e.target.value) || 0 }))} />
+            <input
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            placeholder="Ex : 2"
+            value={newMat.coef === 0 ? '' : newMat.coef}
+            style={{ width: 100 }}
+            onChange={e => {
+              const val = e.target.value.replace(/[^0-9]/g, '')
+              setNewMat(m => ({ ...m, coef: val === '' ? 0 : parseInt(val) }))
+            }}/>
           </Field>
           <Field label="Noté sur">
             <select value={newMat.bareme} onChange={e => setNewMat(m => ({ ...m, bareme: parseInt(e.target.value) }))}>
