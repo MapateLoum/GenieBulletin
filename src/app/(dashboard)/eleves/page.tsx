@@ -16,21 +16,33 @@ export default function ElevesPage() {
 
   const { data: eleves = [], isLoading } = useQuery<Eleve[]>({
     queryKey: ['eleves', niveau, div],
-queryFn: async () => {
-  const r = await fetch(`/api/eleves?niveau=${niveau}&div=${div}`)
-  if (!r.ok) return []
-  return r.json()
-},  })
+    queryFn: async () => {
+      const r = await fetch(`/api/eleves?niveau=${niveau}&div=${div}`)
+      if (!r.ok) return []
+      return r.json()
+    },
+  })
+
+  // Tri alphabétique par dernier mot (nom de famille)
+  const elevesTriés = [...eleves].sort((a, b) => {
+    const nomA = a.nom.split(' ').at(-1) ?? a.nom
+    const nomB = b.nom.split(' ').at(-1) ?? b.nom
+    return nomA.localeCompare(nomB, 'fr')
+  })
 
   const addEleve = useMutation({
     mutationFn: (data: { nom: string; sexe: string; niveau: string; div: string }) =>
-      fetch('/api/eleves', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }).then(r => r.json()),
+      fetch('/api/eleves', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      }).then(r => r.json()),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['eleves', niveau, div] })
       setNom('')
       toast.success('Élève ajouté(e)')
     },
-    onError: () => toast.error('Erreur lors de l\'ajout'),
+    onError: () => toast.error("Erreur lors de l'ajout"),
   })
 
   const deleteEleve = useMutation({
@@ -47,8 +59,8 @@ queryFn: async () => {
   }
 
   function handlePrintListe() {
-    const g = eleves.filter(e => e.sexe === 'G').length
-    const f = eleves.filter(e => e.sexe === 'F').length
+    const g = elevesTriés.filter(e => e.sexe === 'G').length
+    const f = elevesTriés.filter(e => e.sexe === 'F').length
     const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
       <style>body{font-family:Arial;padding:2rem}h2{margin-bottom:1rem}
       table{width:100%;border-collapse:collapse}.info{font-size:0.85rem;color:#555;margin-bottom:1rem}
@@ -57,11 +69,13 @@ queryFn: async () => {
       <h2>Liste des élèves — Classe ${niveau}${div}</h2>
       <p class="info">Année : — | Maître/Maîtresse : —</p>
       <table><thead><tr><th>#</th><th>Nom et Prénom</th><th>Sexe</th><th>Signature</th></tr></thead>
-      <tbody>${eleves.map((e, i) => `<tr><td>${i+1}</td><td>${e.nom}</td><td>${e.sexe}</td><td></td></tr>`).join('')}</tbody></table>
-      <p style="margin-top:1.5rem;font-size:0.85rem;">Total : ${eleves.length} élèves (${g} G / ${f} F)</p>
+      <tbody>${elevesTriés.map((e, i) => `<tr><td>${i + 1}</td><td>${e.nom}</td><td>${e.sexe}</td><td></td></tr>`).join('')}</tbody></table>
+      <p style="margin-top:1.5rem;font-size:0.85rem;">Total : ${elevesTriés.length} élèves (${g} G / ${f} F)</p>
       </body></html>`
     const w = window.open('', '_blank')!
-    w.document.write(html); w.document.close(); w.print()
+    w.document.write(html)
+    w.document.close()
+    w.print()
   }
 
   const garcons = eleves.filter(e => e.sexe === 'G').length
@@ -83,9 +97,13 @@ queryFn: async () => {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
         <div>
           <label>Prénom et Nom</label>
-          <input type="text" value={nom} placeholder="Ex : Fatou Diallo"
+          <input
+            type="text"
+            value={nom}
+            placeholder="Ex : Fatou Diallo"
             onChange={e => setNom(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && handleAdd()} />
+            onKeyDown={e => e.key === 'Enter' && handleAdd()}
+          />
         </div>
         <div>
           <label>Sexe</label>
@@ -104,7 +122,7 @@ queryFn: async () => {
       {/* Table */}
       {isLoading ? (
         <p style={{ color: 'var(--txt2)' }}>Chargement...</p>
-      ) : eleves.length === 0 ? (
+      ) : elevesTriés.length === 0 ? (
         <div className="empty">
           <div className="empty-icon">👤</div>
           <p>Aucun élève dans cette classe. Ajoutez des élèves ci-dessus.</p>
@@ -122,7 +140,7 @@ queryFn: async () => {
                 </tr>
               </thead>
               <tbody>
-                {eleves.map((e, i) => (
+                {elevesTriés.map((e, i) => (
                   <tr key={e.id}>
                     <td>{i + 1}</td>
                     <td><strong>{e.nom}</strong></td>
@@ -135,18 +153,18 @@ queryFn: async () => {
                       <button
                         className="btn btn-danger btn-sm"
                         onClick={() => {
-  toast((t) => (
-    <span>
-      Retirer <strong>{e.nom}</strong> ?{' '}
-      <button className="btn btn-danger btn-sm" onClick={() => { deleteEleve.mutate(e.id); toast.dismiss(t.id) }}>
-        Confirmer
-      </button>{' '}
-      <button className="btn btn-secondary btn-sm" onClick={() => toast.dismiss(t.id)}>
-        Annuler
-      </button>
-    </span>
-  ), { duration: 5000 })
-}}
+                          toast((t) => (
+                            <span>
+                              Retirer <strong>{e.nom}</strong> ?{' '}
+                              <button className="btn btn-danger btn-sm" onClick={() => { deleteEleve.mutate(e.id); toast.dismiss(t.id) }}>
+                                Confirmer
+                              </button>{' '}
+                              <button className="btn btn-secondary btn-sm" onClick={() => toast.dismiss(t.id)}>
+                                Annuler
+                              </button>
+                            </span>
+                          ), { duration: 5000 })
+                        }}
                       >
                         🗑️ Retirer
                       </button>
@@ -157,7 +175,7 @@ queryFn: async () => {
             </table>
           </div>
           <p style={{ marginTop: '1rem', fontSize: '0.85rem', color: 'var(--txt2)' }}>
-            Total : {eleves.length} élèves — {garcons} garçon(s), {filles} fille(s)
+            Total : {elevesTriés.length} élèves — {garcons} garçon(s), {filles} fille(s)
           </p>
         </>
       )}
