@@ -5,11 +5,11 @@ import { usePathname } from 'next/navigation'
 import styles from './TabNav.module.css'
 
 const TABS = [
-  { href: '/configuration', label: '⚙️ Configuration',  key: 'config' },
-  { href: '/eleves',        label: '👨‍🎓 Élèves',         key: 'eleves' },
-  { href: '/notes',         label: '📝 Notes',           key: 'notes' },
-  { href: '/synthese',      label: '📊 Synthèse',        key: 'synthese' },
-  { href: '/bulletins',     label: '🖨️ Bulletins',       key: 'bulletins' },
+  { href: '/configuration', emoji: '⚙️', label: 'Config',    key: 'config' },
+  { href: '/eleves',        emoji: '👨‍🎓', label: 'Élèves',    key: 'eleves' },
+  { href: '/notes',         emoji: '📝', label: 'Notes',     key: 'notes' },
+  { href: '/synthese',      emoji: '📊', label: 'Synthèse',  key: 'synthese' },
+  { href: '/bulletins',     emoji: '🖨️', label: 'Bulletins', key: 'bulletins' },
 ]
 
 export default function TabNav() {
@@ -22,7 +22,8 @@ export default function TabNav() {
           href={tab.href}
           className={`${styles.tab} ${pathname === tab.href ? styles.active : ''}`}
         >
-          {tab.label}
+          <span className={styles.emoji}>{tab.emoji}</span>
+          <span className={styles.label}>{tab.label}</span>
         </Link>
       ))}
     </nav>

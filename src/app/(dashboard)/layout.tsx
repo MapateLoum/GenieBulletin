@@ -7,7 +7,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     <>
       <Header />
       <TabNav />
-      <main style={{ maxWidth: 1100, margin: '0 auto', padding: '2rem 1.5rem' }}>
+      <main style={{ maxWidth: 1100, margin: '0 auto', padding: '2rem 1.5rem',paddingBottom: '70px' }}>
         {children}
       </main>
     </>

@@ -30,8 +30,23 @@
   padding: 4px 14px;
   font-size: 0.78rem;
   font-weight: 600;
+  white-space: nowrap;
 }
 
 @media (max-width: 600px) {
-  .title { font-size: 1.1rem; }
+  .header {
+    padding: 0 1rem;
+    height: 56px;
+  }
+  .title {
+    font-size: 1.1rem;
+  }
+  .sub {
+    font-size: 0.7rem;
+    display: none; /* cache le sous-titre sur mobile */
+  }
+  .badge {
+    padding: 3px 10px;
+    font-size: 0.72rem;
+  }
 }
