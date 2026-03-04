@@ -1,0 +1,53 @@
+/* src/components/ui/Card.module.css */
+.card {
+  background: var(--bg2);
+  border-radius: 16px;
+  padding: 2rem;
+  box-shadow: var(--shadow);
+  border: 1px solid var(--border);
+  margin-bottom: 1.5rem;
+}
+.title {
+  font-family: var(--font-playfair), 'Playfair Display', serif;
+  font-size: 1.25rem;
+  color: var(--vert);
+  margin-bottom: 1.2rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.title::before {
+  content: '';
+  width: 4px;
+  height: 22px;
+  background: var(--or);
+  border-radius: 3px;
+  display: inline-block;
+}
+.formGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1rem;
+}
+.selectorBar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+.selectorBar select,
+.selectorBar input {
+  width: auto;
+}
+.statsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+@media (max-width: 600px) {
+  .card { padding: 1.2rem; }
+  .formGrid { grid-template-columns: 1fr; }
+}

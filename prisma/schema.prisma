@@ -1,0 +1,83 @@
+// prisma/schema.prisma
+// GénieBulletin — Schéma MySQL
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// ── Configuration de l'établissement ─────────────────────────
+model Config {
+  id           Int    @id @default(autoincrement())
+  nomEcole     String @default("") @db.VarChar(200)
+  annee        String @default("") @db.VarChar(20)
+  nomDirecteur String @default("") @db.VarChar(100)
+  localite     String @default("") @db.VarChar(100)
+  nomMaitre    String @default("") @db.VarChar(100)
+  classeActive String @default("CI") @db.VarChar(5)
+  divActive    String @default("A") @db.VarChar(2)
+
+  @@map("config")
+}
+
+// ── Matières ──────────────────────────────────────────────────
+model Matiere {
+  id     Int    @id @default(autoincrement())
+  nom    String @db.VarChar(100)
+  coef   Int    @default(1)
+  bareme Int    @default(20) // 10, 20 ou 100
+  ordre  Int    @default(0)
+
+  notes Note[]
+
+  @@map("matieres")
+}
+
+// ── Élèves ────────────────────────────────────────────────────
+model Eleve {
+  id      Int    @id @default(autoincrement())
+  nom     String @db.VarChar(150)
+  sexe    String @db.Char(1) // "G" ou "F"
+  niveau  String @db.VarChar(5)  // CI, CP, CE1, CE2, CM1, CM2
+  div     String @db.Char(1)     // A ou B
+  createdAt DateTime @default(now())
+
+  notes         Note[]
+  appreciations Appreciation[]
+
+  @@index([niveau, div])
+  @@map("eleves")
+}
+
+// ── Notes ─────────────────────────────────────────────────────
+model Note {
+  id        Int     @id @default(autoincrement())
+  eleveId   Int
+  matiereId Int
+  compo     Int     // 1, 2 ou 3
+  valeur    Float?  // null = non saisi
+
+  eleve   Eleve   @relation(fields: [eleveId], references: [id], onDelete: Cascade)
+  matiere Matiere @relation(fields: [matiereId], references: [id], onDelete: Cascade)
+
+  @@unique([eleveId, matiereId, compo])
+  @@index([eleveId, compo])
+  @@map("notes")
+}
+
+// ── Appréciations ─────────────────────────────────────────────
+model Appreciation {
+  id      Int    @id @default(autoincrement())
+  eleveId Int
+  compo   Int
+  texte   String @db.Text
+
+  eleve Eleve @relation(fields: [eleveId], references: [id], onDelete: Cascade)
+
+  @@unique([eleveId, compo])
+  @@map("appreciations")
+}
