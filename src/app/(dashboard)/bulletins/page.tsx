@@ -13,6 +13,11 @@ export default function BulletinsPage() {
   const [compo, setCompo] = useState(1)
   const apprTimers = useRef<Record<number, ReturnType<typeof setTimeout>>>({})
 
+  const { data: me } = useQuery({
+  queryKey: ['me'],
+  queryFn: () => fetch('/api/me').then(r => r.json()),
+})
+
   const { data: config } = useQuery({
     queryKey: ['config'],
     queryFn: () => fetch('/api/config').then(r => r.json()),

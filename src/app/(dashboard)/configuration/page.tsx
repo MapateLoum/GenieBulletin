@@ -41,6 +41,19 @@ export default function ConfigurationPage() {
     if (config) setForm(f => ({ ...f, ...config }))
   }, [config])
 
+  useEffect(() => {
+  if (config) setForm(f => ({ ...f, ...config }))
+}, [config])
+
+// Charger le vrai nom du maître connecté
+useEffect(() => {
+  if (!isDirecteur) {
+    fetch('/api/me').then(r => r.json()).then(user => {
+      if (user?.nom) setForm(f => ({ ...f, nomMaitre: user.nom }))
+    })
+  }
+}, [isDirecteur])
+
   const updateConfig = useMutation({
     mutationFn: (data: Partial<Config>) =>
       fetch('/api/config', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }).then(r => r.json()),
@@ -118,23 +131,38 @@ export default function ConfigurationPage() {
 
       {/* Nom du maître — visible par le maître uniquement */}
       {!isDirecteur && (
-        <Card title="Mon profil de classe">
-          <FormGrid>
-            <Field label="Nom du maître / maîtresse">
-              <input type="text" value={form.nomMaitre} placeholder="Ex : Mme Faye"
-                onChange={e => handleFieldChange('nomMaitre', e.target.value)} />
-            </Field>
-          </FormGrid>
-          <div style={{ marginTop: '1rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
-            <button className="btn btn-primary" onClick={() => updateConfig.mutate({ nomMaitre: form.nomMaitre })}>
-              💾 Sauvegarder
-            </button>
-            <span style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--vert)', fontFamily: 'var(--font-playfair)' }}>
-              Classe : {session?.user?.niveau}{session?.user?.div}
-            </span>
-          </div>
-        </Card>
-      )}
+  <Card title="Mon profil de classe">
+    <FormGrid>
+      <Field label="Mon nom (affiché sur les bulletins)">
+        <input
+          type="text"
+          value={form.nomMaitre}
+          placeholder="Ex : Mme Faye"
+          onChange={e => handleFieldChange('nomMaitre', e.target.value)}
+        />
+      </Field>
+    </FormGrid>
+    <div style={{ marginTop: '1rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+      <button
+        className="btn btn-primary"
+        onClick={async () => {
+          const r = await fetch('/api/me', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ nom: form.nomMaitre }),
+          })
+          if (r.ok) toast.success('Nom mis à jour')
+          else toast.error('Erreur')
+        }}
+      >
+        💾 Sauvegarder
+      </button>
+      <span style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--vert)', fontFamily: 'var(--font-playfair)' }}>
+        Classe : {session?.user?.niveau}{session?.user?.div}
+      </span>
+    </div>
+  </Card>
+)}
 
       {/* Matières */}
       <Card title={`Matières — Classe ${effectifNiveau}${effectifDiv}`}>
