@@ -11,13 +11,6 @@ const MatiereSchema = z.object({
   bareme: z.number().int(),
 })
 
-function getClasseFromSession(session: any) {
-  return {
-    niveau: session.user.niveau as string,
-    div:    session.user.div as string,
-  }
-}
-
 export async function GET(req: Request) {
   try {
     const session = await getServerSession(authOptions)
@@ -26,16 +19,18 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url)
     let niveau = searchParams.get('niveau')
     let div    = searchParams.get('div')
+    const compoParam = searchParams.get('compo')
+    const compo = compoParam ? parseInt(compoParam) : undefined
 
-    // Maître : forcer sa propre classe
     if (session.user.role === 'maitre') {
       niveau = session.user.niveau
       div    = session.user.div
     }
 
-    const where: Record<string, string> = {}
+    const where: Record<string, any> = {}
     if (niveau) where.niveau = niveau
     if (div)    where.div    = div
+    if (compo)  where.compo  = compo
 
     const matieres = await prisma.matiere.findMany({
       where,
@@ -55,15 +50,14 @@ export async function POST(req: Request) {
     const body = await req.json()
     const data = MatiereSchema.parse(body)
 
-    // Déterminer niveau/div selon le rôle
     let niveau: string
     let div: string
+    const compo: number = body.compo ?? 1
 
     if (session.user.role === 'maitre') {
       niveau = session.user.niveau!
       div    = session.user.div!
     } else {
-      // Directeur doit passer niveau/div dans le body
       niveau = body.niveau
       div    = body.div
       if (!niveau || !div) {
@@ -71,9 +65,9 @@ export async function POST(req: Request) {
       }
     }
 
-    const count = await prisma.matiere.count({ where: { niveau, div } })
+    const count = await prisma.matiere.count({ where: { niveau, div, compo } })
     const matiere = await prisma.matiere.create({
-      data: { ...data, niveau, div, ordre: count + 1 },
+      data: { ...data, niveau, div, compo, ordre: count + 1 },
     })
     return NextResponse.json(matiere, { status: 201 })
   } catch (e) {

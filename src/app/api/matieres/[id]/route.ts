@@ -16,7 +16,6 @@ export async function DELETE(
     const id = parseInt(rawId)
     if (isNaN(id)) return NextResponse.json({ error: 'ID invalide' }, { status: 400 })
 
-    // Vérifier que la matière appartient à la classe du maître
     if (session.user.role === 'maitre') {
       const mat = await prisma.matiere.findUnique({ where: { id } })
       if (!mat || mat.niveau !== session.user.niveau || mat.div !== session.user.div) {
@@ -42,7 +41,6 @@ export async function PUT(
     const { id: rawId } = await params
     const id = parseInt(rawId)
 
-    // Vérifier que la matière appartient à la classe du maître
     if (session.user.role === 'maitre') {
       const mat = await prisma.matiere.findUnique({ where: { id } })
       if (!mat || mat.niveau !== session.user.niveau || mat.div !== session.user.div) {

@@ -42,10 +42,11 @@ export default function BulletinsPage() {
     },
   })
 
+  // Matières spécifiques à la composition
   const { data: matieres = [] } = useQuery<Matiere[]>({
-    queryKey: ['matieres', niveau, div],
+    queryKey: ['matieres', niveau, div, compo],
     queryFn: async () => {
-      const r = await fetch(`/api/matieres?niveau=${niveau}&div=${div}`)
+      const r = await fetch(`/api/matieres?niveau=${niveau}&div=${div}&compo=${compo}`)
       if (!r.ok) return []
       return r.json()
     },
@@ -71,7 +72,6 @@ export default function BulletinsPage() {
     enabled: eleves.length > 0,
   })
 
-  // Charger le bilan annuel uniquement pour la 3ème composition
   const { data: bilanAnnuel = [] } = useQuery<BilanAnnuel[]>({
     queryKey: ['synthese-annuelle', niveau, div],
     queryFn: async () => {
@@ -128,13 +128,9 @@ export default function BulletinsPage() {
     <>
       <style>{`
         * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-
         .bulletin-wrap {
-          background: #fff;
-          border: 1px solid var(--border);
-          border-radius: 12px;
-          padding: 1.2rem;
-          margin-bottom: 1rem;
+          background: #fff; border: 1px solid var(--border);
+          border-radius: 12px; padding: 1.2rem; margin-bottom: 1rem;
         }
         .blt-header {
           display: flex; justify-content: space-between; align-items: flex-start;
@@ -151,47 +147,20 @@ export default function BulletinsPage() {
         .blt-resume { display: flex; gap: 0.6rem; flex-wrap: wrap; align-items: flex-start; margin-bottom: 0.6rem; }
         .blt-box { flex: 1; min-width: 110px; border-radius: 8px; padding: 8px; text-align: center; }
         .blt-appr { flex: 2; min-width: 160px; }
-        .blt-annuelle {
-          margin-top: 0.6rem;
-          border: 2px solid var(--vert);
-          border-radius: 8px;
-          padding: 0.6rem;
-          background: #f0faf5;
-        }
-        .blt-annuelle-title {
-          font-size: 0.72rem; font-weight: 700; color: var(--vert);
-          text-transform: uppercase; letter-spacing: 0.5px;
-          margin-bottom: 0.4rem; border-bottom: 1px solid #c3e6cb; padding-bottom: 4px;
-        }
-        .blt-annuelle-grid {
-          display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;
-        }
-        .blt-annuelle-item {
-          flex: 1; min-width: 80px; text-align: center;
-          background: #fff; border-radius: 6px; padding: 5px;
-          border: 1px solid #c3e6cb;
-        }
-        .blt-decision {
-          flex: 2; min-width: 140px; text-align: center;
-          border-radius: 6px; padding: 6px 10px;
-          font-weight: 700; font-size: 0.78rem;
-        }
+        .blt-annuelle { margin-top: 0.6rem; border: 2px solid var(--vert); border-radius: 8px; padding: 0.6rem; background: #f0faf5; }
+        .blt-annuelle-title { font-size: 0.72rem; font-weight: 700; color: var(--vert); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.4rem; border-bottom: 1px solid #c3e6cb; padding-bottom: 4px; }
+        .blt-annuelle-grid { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
+        .blt-annuelle-item { flex: 1; min-width: 80px; text-align: center; background: #fff; border-radius: 6px; padding: 5px; border: 1px solid #c3e6cb; }
+        .blt-decision { flex: 2; min-width: 140px; text-align: center; border-radius: 6px; padding: 6px 10px; font-weight: 700; font-size: 0.78rem; }
         .decision-admis { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
         .decision-redouble { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
-        .blt-sigs {
-          display: flex; justify-content: space-between; font-size: 0.72rem;
-          color: #666; border-top: 1px solid #eee; padding-top: 6px;
-          flex-wrap: wrap; gap: 0.3rem;
-          margin-top: 1rem; min-height: 40px;
-        }
-
+        .blt-sigs { display: flex; justify-content: space-between; font-size: 0.72rem; color: #666; border-top: 1px solid #eee; padding-top: 6px; flex-wrap: wrap; gap: 0.3rem; margin-top: 1rem; min-height: 40px; }
         @media (max-width: 600px) {
           .blt-header { flex-direction: column; }
           .blt-header-c, .blt-header-r { text-align: left; }
           .blt-appr { min-width: 100%; width: 100%; }
           .blt-sigs { flex-direction: column; }
         }
-
         @media print {
           * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           @page { size: A4 landscape; margin: 8mm; }
@@ -199,18 +168,9 @@ export default function BulletinsPage() {
           body, .card { background: #fff !important; box-shadow: none !important; padding: 0 !important; }
           .screen-list { display: none !important; }
           .print-list { display: block !important; }
-          .print-page {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 6mm; width: 100%;
-            page-break-after: always; break-after: page;
-          }
+          .print-page { display: grid; grid-template-columns: 1fr 1fr; gap: 6mm; width: 100%; page-break-after: always; break-after: page; }
           .print-page:last-child { page-break-after: avoid; break-after: avoid; }
-          .bulletin-wrap {
-            border: 1px solid #bbb !important; border-radius: 4px !important;
-            padding: 5mm !important; margin: 0 !important;
-            page-break-inside: avoid; break-inside: avoid; overflow: hidden;
-          }
+          .bulletin-wrap { border: 1px solid #bbb !important; border-radius: 4px !important; padding: 5mm !important; margin: 0 !important; page-break-inside: avoid; break-inside: avoid; overflow: hidden; }
           .blt-table { font-size: 0.65rem; min-width: unset !important; }
           .blt-table th { padding: 2px 4px; font-size: 0.6rem; }
           .blt-table td { padding: 2px 4px; }
@@ -225,7 +185,6 @@ export default function BulletinsPage() {
           .blt-decision { font-size: 0.65rem; padding: 3px 6px; }
           .blt-annuelle-title { font-size: 0.6rem; margin-bottom: 2px; }
         }
-
         @media screen { .print-list { display: none !important; } }
       `}</style>
 
@@ -237,7 +196,6 @@ export default function BulletinsPage() {
           <button className="btn btn-or" onClick={handlePrint}>🖨️ Imprimer tous</button>
         </SelectorBar>
 
-        {/* Affichage écran */}
         <div className="screen-list">
           {elevesAvecRangs.map((e) => (
             <div key={e.id} className="bulletin-wrap">
@@ -252,7 +210,6 @@ export default function BulletinsPage() {
           ))}
         </div>
 
-        {/* Affichage impression : paires */}
         <div className="print-list">
           {Array.from({ length: Math.ceil(elevesAvecRangs.length / 2) }, (_, i) => {
             const pair = elevesAvecRangs.slice(i * 2, i * 2 + 2)
@@ -279,7 +236,6 @@ export default function BulletinsPage() {
   )
 }
 
-/* ── Composant bulletin ── */
 function BulletinContent({
   e, config, me, niveau, div, eleves, matieres, notes, compo, apprText, bilan, onApprChange, isPrint = false
 }: {
@@ -296,19 +252,13 @@ function BulletinContent({
     <>
       <div className="blt-header">
         <div className="blt-header-l">
-          <div style={{ fontFamily: 'var(--font-playfair)', fontSize: '0.85rem', color: 'var(--vert)', fontWeight: 700 }}>
-            REPUBLIQUE DU SÉNÉGAL
-          </div>
+          <div style={{ fontFamily: 'var(--font-playfair)', fontSize: '0.85rem', color: 'var(--vert)', fontWeight: 700 }}>REPUBLIQUE DU SÉNÉGAL</div>
           <div style={{ fontSize: '0.68rem', color: '#555' }}>Un Peuple — Un But — Une Foi</div>
           <div style={{ marginTop: 3, fontWeight: 700, fontSize: '0.82rem' }}>{config?.nomEcole || 'École Élémentaire'}</div>
           <div style={{ fontSize: '0.68rem', color: '#777' }}>{config?.localite || ''}</div>
         </div>
         <div className="blt-header-c">
-          <div style={{
-            fontFamily: 'var(--font-playfair)', fontSize: '0.88rem', fontWeight: 700,
-            color: 'var(--vert)', border: '2px solid var(--vert)', padding: '3px 8px',
-            borderRadius: 5, display: 'inline-block',
-          }}>
+          <div style={{ fontFamily: 'var(--font-playfair)', fontSize: '0.88rem', fontWeight: 700, color: 'var(--vert)', border: '2px solid var(--vert)', padding: '3px 8px', borderRadius: 5, display: 'inline-block' }}>
             BULLETIN DE NOTES
           </div>
           <div style={{ fontSize: '0.68rem', marginTop: 3 }}>Composition N°{compo}</div>
@@ -336,8 +286,7 @@ function BulletinContent({
             {matieres.map(m => {
               const note = notes.find(n => n.eleveId === e.id && n.matiereId === m.id)
               const val = note?.valeur
-              const sur10 = val !== null && val !== undefined
-                ? Math.round((val / m.bareme) * 10 * 100) / 100 : null
+              const sur10 = val !== null && val !== undefined ? Math.round((val / m.bareme) * 10 * 100) / 100 : null
               return (
                 <tr key={m.id}>
                   <td>{m.nom}</td>
@@ -377,52 +326,37 @@ function BulletinContent({
           ) : (
             <>
               <label style={{ fontSize: '0.72rem' }}>Appréciation du maître</label>
-              <textarea
-                rows={2}
-                defaultValue={apprText}
-                placeholder="Commentaire sur l'élève..."
+              <textarea rows={2} defaultValue={apprText} placeholder="Commentaire sur l'élève..."
                 style={{ width: '100%', padding: 6, border: '1.5px solid var(--border)', borderRadius: 6, fontFamily: 'inherit', fontSize: '0.78rem', resize: 'none' }}
-                onChange={ev => onApprChange(e.id, ev.target.value)}
-              />
+                onChange={ev => onApprChange(e.id, ev.target.value)} />
             </>
           )}
         </div>
       </div>
 
-      {/* ── Bilan annuel — uniquement composition 3 ── */}
       {compo === 3 && bilan && (
         <div className="blt-annuelle">
           <div className="blt-annuelle-title">📊 Bilan annuel</div>
           <div className="blt-annuelle-grid">
             <div className="blt-annuelle-item">
               <div style={{ fontSize: '0.58rem', color: '#555', textTransform: 'uppercase' }}>Moy. C1</div>
-              <div style={{ fontWeight: 700, fontSize: '0.88rem', color: 'var(--vert)' }}>
-                {bilan.moyenneCompo1 !== null ? `${bilan.moyenneCompo1}/10` : '—'}
-              </div>
+              <div style={{ fontWeight: 700, fontSize: '0.88rem', color: 'var(--vert)' }}>{bilan.moyenneCompo1 !== null ? `${bilan.moyenneCompo1}/10` : '—'}</div>
             </div>
             <div className="blt-annuelle-item">
               <div style={{ fontSize: '0.58rem', color: '#555', textTransform: 'uppercase' }}>Moy. C2</div>
-              <div style={{ fontWeight: 700, fontSize: '0.88rem', color: 'var(--vert)' }}>
-                {bilan.moyenneCompo2 !== null ? `${bilan.moyenneCompo2}/10` : '—'}
-              </div>
+              <div style={{ fontWeight: 700, fontSize: '0.88rem', color: 'var(--vert)' }}>{bilan.moyenneCompo2 !== null ? `${bilan.moyenneCompo2}/10` : '—'}</div>
             </div>
             <div className="blt-annuelle-item">
               <div style={{ fontSize: '0.58rem', color: '#555', textTransform: 'uppercase' }}>Moy. C3</div>
-              <div style={{ fontWeight: 700, fontSize: '0.88rem', color: 'var(--vert)' }}>
-                {bilan.moyenneCompo3 !== null ? `${bilan.moyenneCompo3}/10` : '—'}
-              </div>
+              <div style={{ fontWeight: 700, fontSize: '0.88rem', color: 'var(--vert)' }}>{bilan.moyenneCompo3 !== null ? `${bilan.moyenneCompo3}/10` : '—'}</div>
             </div>
             <div className="blt-annuelle-item">
               <div style={{ fontSize: '0.58rem', color: '#555', textTransform: 'uppercase' }}>Moy. Annuelle</div>
-              <div style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--vert)', fontFamily: 'var(--font-playfair)' }}>
-                {bilan.moyenneAnnuelle !== null ? `${bilan.moyenneAnnuelle}/10` : '—'}
-              </div>
+              <div style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--vert)', fontFamily: 'var(--font-playfair)' }}>{bilan.moyenneAnnuelle !== null ? `${bilan.moyenneAnnuelle}/10` : '—'}</div>
             </div>
             <div className="blt-annuelle-item">
               <div style={{ fontSize: '0.58rem', color: '#555', textTransform: 'uppercase' }}>Rang annuel</div>
-              <div style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--or)', fontFamily: 'var(--font-playfair)' }}>
-                {bilan.rangAnnuel !== null ? `${bilan.rangAnnuel} / ${eleves.length}` : '—'}
-              </div>
+              <div style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--or)', fontFamily: 'var(--font-playfair)' }}>{bilan.rangAnnuel !== null ? `${bilan.rangAnnuel} / ${eleves.length}` : '—'}</div>
             </div>
             <div className={`blt-decision ${bilan.decision?.includes('Admis') ? 'decision-admis' : 'decision-redouble'}`}>
               {bilan.decision === 'Admis(e) en classe supérieure' ? '✅' : '🔄'} {bilan.decision ?? '—'}

@@ -19,7 +19,6 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Paramètres manquants' }, { status: 400 })
     }
 
-    // Maître : accès uniquement à sa classe
     if (session.user.role === 'maitre') {
       if (session.user.niveau !== niveau || session.user.div !== div) {
         return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
@@ -28,7 +27,8 @@ export async function GET(req: Request) {
 
     const [eleves, matieres, notes] = await Promise.all([
       prisma.eleve.findMany({ where: { niveau, div }, orderBy: { nom: 'asc' } }),
-prisma.matiere.findMany({ where: { niveau, div }, orderBy: { ordre: 'asc' } }),      prisma.note.findMany({ where: { compo, eleve: { niveau, div } } }),
+      prisma.matiere.findMany({ where: { niveau, div, compo }, orderBy: { ordre: 'asc' } }),
+      prisma.note.findMany({ where: { compo, eleve: { niveau, div } } }),
     ])
 
     const elevesAvecRangs = computeElevesAvecRangs(eleves as any, notes as any, matieres as any)

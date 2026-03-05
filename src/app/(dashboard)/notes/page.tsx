@@ -91,27 +91,28 @@ export default function NotesPage() {
   <meta charset="UTF-8">
   <title>Notes — Classe ${niveau}${div} — ${COMPO_LABELS[compo]}</title>
   <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; 
-      -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  body { font-family: Arial, sans-serif; padding: 1.5rem; font-size: 0.82rem; color: #1a1a1a; }
-  .header { display: flex; justify-content: space-between; align-items: flex-start;
-            border-bottom: 2px solid #1a6b3a; padding-bottom: 0.8rem; margin-bottom: 1rem; }
-  .titre { font-size: 1.1rem; font-weight: 700; color: #1a6b3a; }
-  .sous-titre { font-size: 0.8rem; color: #555; margin-top: 3px; }
-  table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
-  th { background: #1a6b3a; color: #fff; padding: 6px 8px; text-align: center;
-       font-size: 0.72rem; border: 1px solid #155c30; }
-  th:first-child, th:nth-child(2), th:nth-child(3) { text-align: left; }
-  td { padding: 5px 8px; border: 1px solid #ddd; text-align: center; vertical-align: middle; }
-  td:first-child, td:nth-child(2), td:nth-child(3) { text-align: left; }
-  tr:nth-child(even) { background: #f8faf8; }
-  .footer { margin-top: 1.5rem; display: flex; justify-content: space-between;
-            font-size: 0.75rem; color: #777; border-top: 1px solid #ddd; padding-top: 0.8rem; }
-  @media print {
-    body { padding: 0.8rem; }
-    @page { size: A4 landscape; margin: 1cm; }
-  }
-</style>
+    * { box-sizing: border-box; margin: 0; padding: 0;
+        -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    body { font-family: Arial, sans-serif; padding: 1.5rem; font-size: 0.82rem; color: #1a1a1a; }
+    .header { display: flex; justify-content: space-between; align-items: flex-start;
+              border-bottom: 2px solid #1a6b3a; padding-bottom: 0.8rem; margin-bottom: 1rem; }
+    .titre { font-size: 1.1rem; font-weight: 700; color: #1a6b3a; }
+    .sous-titre { font-size: 0.8rem; color: #555; margin-top: 3px; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+    th { background: #1a6b3a; color: #fff; padding: 6px 8px; text-align: center;
+         font-size: 0.72rem; border: 1px solid #155c30; }
+    th:first-child, th:nth-child(2), th:nth-child(3) { text-align: left; }
+    td { padding: 5px 8px; border: 1px solid #ddd; text-align: center; vertical-align: middle; }
+    td:first-child, td:nth-child(2), td:nth-child(3) { text-align: left; }
+    tr:nth-child(even) { background: #f8faf8; }
+    .footer { margin-top: 1.5rem; display: flex; justify-content: space-between;
+              font-size: 0.75rem; color: #777; border-top: 1px solid #ddd; padding-top: 0.8rem; }
+    @media print {
+      body { padding: 0.8rem; }
+      * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      @page { size: A4 landscape; margin: 1cm; }
+    }
+  </style>
 </head>
 <body>
   <div class="header">
@@ -128,19 +129,15 @@ export default function NotesPage() {
       <div>Effectif : <strong>${eleves.length} élèves</strong></div>
     </div>
   </div>
-
   <table>
     <thead>
       <tr>
-        <th>#</th>
-        <th>Nom et Prénom</th>
-        <th>Sexe</th>
+        <th>#</th><th>Nom et Prénom</th><th>Sexe</th>
         ${theadCols}
       </tr>
     </thead>
     <tbody>${rowsHTML}</tbody>
   </table>
-
   <div class="footer">
     <div>Signature du Maître/Maîtresse : _______________________</div>
     <div>Signature du Directeur : _______________________</div>
@@ -224,10 +221,7 @@ export default function NotesPage() {
                   return (
                     <td key={m.id}>
                       <input
-                        type="number"
-                        min={0}
-                        max={m.bareme}
-                        step={0.25}
+                        type="number" min={0} max={m.bareme} step={0.25}
                         defaultValue={val !== undefined && val !== null ? val : ''}
                         key={`${e.id}-${m.id}-${compo}`}
                         style={{ width: 70, padding: '4px 6px', border: '1px solid #ccc', borderRadius: 6, fontSize: '0.85rem' }}

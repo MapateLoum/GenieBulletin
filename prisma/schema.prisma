@@ -43,10 +43,11 @@ model Matiere {
   ordre  Int    @default(0)
   niveau String
   div    String
+  compo  Int    @default(1)
 
   notes Note[]
 
-  @@index([niveau, div])
+  @@index([niveau, div, compo])
   @@map("matieres")
 }
 
@@ -91,6 +92,7 @@ model Appreciation {
   @@unique([eleveId, compo])
   @@map("appreciations")
 }
+
 model ResetToken {
   id        Int      @id @default(autoincrement())
   email     String

@@ -22,8 +22,9 @@ export interface Matiere {
   coef: number
   bareme: number
   ordre: number
-  niveau: string  // ← ajouter
-  div: string     // ← ajouter
+  niveau: string
+  div: string
+  compo: number
 }
 
 export interface Eleve {
@@ -48,8 +49,6 @@ export interface Appreciation {
   compo: number
   texte: string
 }
-
-// ── Calculés ──────────────────────────────────────────────────
 
 export interface EleveMoyenne extends Eleve {
   moyenne: number | null
@@ -79,7 +78,6 @@ export interface MatiereStats {
   min: number | null
 }
 
-// ── API Response helpers ───────────────────────────────────────
 export interface ApiResponse<T> {
   data?: T
   error?: string
