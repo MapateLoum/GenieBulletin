@@ -10,6 +10,100 @@ import type { Config, Matiere } from '@/types'
 
 const fetchConfig = (): Promise<Config> => fetch('/api/config').then(r => r.json())
 
+// ── Modale d'édition matière ──────────────────────────────────
+function EditMatiereModal({
+  matiere,
+  onClose,
+  onSave,
+  isPending,
+}: {
+  matiere: Matiere
+  onClose: () => void
+  onSave: (nom: string, coef: number, bareme: number) => void
+  isPending: boolean
+}) {
+  const [nom, setNom]       = useState(matiere.nom)
+  const [coef, setCoef]     = useState(matiere.coef)
+  const [bareme, setBareme] = useState(matiere.bareme)
+
+  function handleSubmit() {
+    if (!nom.trim())   { toast.error('Entrez le nom');         return }
+    if (coef < 1)      { toast.error('Coefficient invalide');  return }
+    if (bareme < 1)    { toast.error('Barème invalide');       return }
+    onSave(nom.trim(), coef, bareme)
+  }
+
+  return (
+    <div
+      style={{
+        position: 'fixed', inset: 0, zIndex: 1000,
+        background: 'rgba(0,0,0,0.45)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}
+      onClick={onClose}
+    >
+      <div
+        style={{
+          background: 'var(--card-bg, #fff)',
+          borderRadius: '12px',
+          padding: '2rem',
+          width: '100%',
+          maxWidth: '420px',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
+        }}
+        onClick={e => e.stopPropagation()}
+      >
+        <h3 style={{ marginBottom: '1.25rem', fontSize: '1.1rem' }}>
+          ✏️ Modifier la matière
+        </h3>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div>
+            <label>Nom de la matière</label>
+            <input
+              type="text" value={nom} autoFocus
+              onChange={e => setNom(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleSubmit()}
+            />
+          </div>
+          <div style={{ display: 'flex', gap: '1rem' }}>
+            <div>
+              <label>Coefficient</label>
+              <input
+                type="text" inputMode="numeric" value={coef === 0 ? '' : coef}
+                style={{ width: 90 }}
+                onChange={e => {
+                  const v = e.target.value.replace(/[^0-9]/g, '')
+                  setCoef(v === '' ? 0 : parseInt(v))
+                }}
+              />
+            </div>
+            <div>
+              <label>Noté sur</label>
+              <input
+                type="text" inputMode="numeric" value={bareme === 0 ? '' : bareme}
+                style={{ width: 90 }}
+                onChange={e => {
+                  const v = e.target.value.replace(/[^0-9]/g, '')
+                  setBareme(v === '' ? 0 : parseInt(v))
+                }}
+              />
+            </div>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.5rem', justifyContent: 'flex-end' }}>
+          <button className="btn btn-secondary" onClick={onClose}>Annuler</button>
+          <button className="btn btn-primary" onClick={handleSubmit} disabled={isPending}>
+            {isPending ? '...' : '💾 Enregistrer'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Page principale ───────────────────────────────────────────
 export default function ConfigurationPage() {
   const qc = useQueryClient()
   const { data: session } = useSession()
@@ -17,11 +111,9 @@ export default function ConfigurationPage() {
 
   const { data: config } = useQuery({ queryKey: ['config'], queryFn: fetchConfig })
 
-  // Pour le directeur : choisir la classe dont on gère les matières
   const [matNiveau, setMatNiveau] = useState('CI')
   const [matDiv, setMatDiv]       = useState('A')
 
-  // Niveau/div effectifs pour les matières
   const effectifNiveau = isDirecteur ? matNiveau : (session?.user?.niveau ?? 'CI')
   const effectifDiv    = isDirecteur ? matDiv    : (session?.user?.div    ?? 'A')
 
@@ -35,24 +127,20 @@ export default function ConfigurationPage() {
     nomEcole: '', annee: '', nomDirecteur: '', localite: '', nomMaitre: '',
     classeActive: 'CI', divActive: 'A',
   })
-  const [newMat, setNewMat] = useState({ nom: '', coef: 0, bareme: 0 })
+  const [newMat, setNewMat]         = useState({ nom: '', coef: 0, bareme: 0 })
+  const [editMatiere, setEditMatiere] = useState<Matiere | null>(null)  // ← nouveau
 
   useEffect(() => {
     if (config) setForm(f => ({ ...f, ...config }))
   }, [config])
 
   useEffect(() => {
-  if (config) setForm(f => ({ ...f, ...config }))
-}, [config])
-
-// Charger le vrai nom du maître connecté
-useEffect(() => {
-  if (!isDirecteur) {
-    fetch('/api/me').then(r => r.json()).then(user => {
-      if (user?.nom) setForm(f => ({ ...f, nomMaitre: user.nom }))
-    })
-  }
-}, [isDirecteur])
+    if (!isDirecteur) {
+      fetch('/api/me').then(r => r.json()).then(user => {
+        if (user?.nom) setForm(f => ({ ...f, nomMaitre: user.nom }))
+      })
+    }
+  }, [isDirecteur])
 
   const updateConfig = useMutation({
     mutationFn: (data: Partial<Config>) =>
@@ -73,6 +161,22 @@ useEffect(() => {
       toast.success('Matière ajoutée')
     },
     onError: () => toast.error("Erreur lors de l'ajout"),
+  })
+
+  // ── Mutation édition matière ──────────────────────────────────
+  const updateMatiere = useMutation({
+    mutationFn: ({ id, nom, coef, bareme }: { id: number; nom: string; coef: number; bareme: number }) =>
+      fetch(`/api/matieres/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nom, coef, bareme }),
+      }).then(r => r.json()),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['matieres', effectifNiveau, effectifDiv] })
+      setEditMatiere(null)
+      toast.success('Matière modifiée')
+    },
+    onError: () => toast.error('Erreur lors de la modification'),
   })
 
   const deleteMatiere = useMutation({
@@ -100,6 +204,16 @@ useEffect(() => {
 
   return (
     <>
+      {/* Modale édition matière */}
+      {editMatiere && (
+        <EditMatiereModal
+          matiere={editMatiere}
+          onClose={() => setEditMatiere(null)}
+          onSave={(nom, coef, bareme) => updateMatiere.mutate({ id: editMatiere.id, nom, coef, bareme })}
+          isPending={updateMatiere.isPending}
+        />
+      )}
+
       {/* Établissement — directeur seulement */}
       {isDirecteur && (
         <Card title="Informations de l'établissement">
@@ -131,43 +245,42 @@ useEffect(() => {
 
       {/* Nom du maître — visible par le maître uniquement */}
       {!isDirecteur && (
-  <Card title="Mon profil de classe">
-    <FormGrid>
-      <Field label="Mon nom (affiché sur les bulletins)">
-        <input
-          type="text"
-          value={form.nomMaitre}
-          placeholder="Ex : Mme Faye"
-          onChange={e => handleFieldChange('nomMaitre', e.target.value)}
-        />
-      </Field>
-    </FormGrid>
-    <div style={{ marginTop: '1rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
-      <button
-        className="btn btn-primary"
-        onClick={async () => {
-          const r = await fetch('/api/me', {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ nom: form.nomMaitre }),
-          })
-          if (r.ok) toast.success('Nom mis à jour')
-          else toast.error('Erreur')
-        }}
-      >
-        💾 Sauvegarder
-      </button>
-      <span style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--vert)', fontFamily: 'var(--font-playfair)' }}>
-        Classe : {session?.user?.niveau}{session?.user?.div}
-      </span>
-    </div>
-  </Card>
-)}
+        <Card title="Mon profil de classe">
+          <FormGrid>
+            <Field label="Mon nom (affiché sur les bulletins)">
+              <input
+                type="text"
+                value={form.nomMaitre}
+                placeholder="Ex : Mme Faye"
+                onChange={e => handleFieldChange('nomMaitre', e.target.value)}
+              />
+            </Field>
+          </FormGrid>
+          <div style={{ marginTop: '1rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <button
+              className="btn btn-primary"
+              onClick={async () => {
+                const r = await fetch('/api/me', {
+                  method: 'PUT',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ nom: form.nomMaitre }),
+                })
+                if (r.ok) toast.success('Nom mis à jour')
+                else toast.error('Erreur')
+              }}
+            >
+              💾 Sauvegarder
+            </button>
+            <span style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--vert)', fontFamily: 'var(--font-playfair)' }}>
+              Classe : {session?.user?.niveau}{session?.user?.div}
+            </span>
+          </div>
+        </Card>
+      )}
 
       {/* Matières */}
       <Card title={`Matières — Classe ${effectifNiveau}${effectifDiv}`}>
 
-        {/* Sélecteur de classe pour le directeur */}
         {isDirecteur && (
           <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem', flexWrap: 'wrap', alignItems: 'flex-end' }}>
             <Field label="Niveau">
@@ -203,26 +316,36 @@ useEffect(() => {
                     <td>{m.coef}</td>
                     <td>/{m.bareme}</td>
                     <td className="no-print">
-                      <button
-                        className="btn btn-danger btn-sm"
-                        onClick={() => {
-                          toast((t) => (
-                            <span>
-                              Supprimer <strong>{m.nom}</strong> ?{' '}
-                              <button className="btn btn-danger btn-sm"
-                                onClick={() => { deleteMatiere.mutate(m.id); toast.dismiss(t.id) }}>
-                                Confirmer
-                              </button>{' '}
-                              <button className="btn btn-secondary btn-sm"
-                                onClick={() => toast.dismiss(t.id)}>
-                                Annuler
-                              </button>
-                            </span>
-                          ), { duration: 5000 })
-                        }}
-                      >
-                        🗑️
-                      </button>
+                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        {/* ── Bouton modifier ── */}
+                        <button
+                          className="btn btn-secondary btn-sm"
+                          onClick={() => setEditMatiere(m)}
+                        >
+                          ✏️
+                        </button>
+                        {/* ── Bouton supprimer ── */}
+                        <button
+                          className="btn btn-danger btn-sm"
+                          onClick={() => {
+                            toast((t) => (
+                              <span>
+                                Supprimer <strong>{m.nom}</strong> ?{' '}
+                                <button className="btn btn-danger btn-sm"
+                                  onClick={() => { deleteMatiere.mutate(m.id); toast.dismiss(t.id) }}>
+                                  Confirmer
+                                </button>{' '}
+                                <button className="btn btn-secondary btn-sm"
+                                  onClick={() => toast.dismiss(t.id)}>
+                                  Annuler
+                                </button>
+                              </span>
+                            ), { duration: 5000 })
+                          }}
+                        >
+                          🗑️
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}

@@ -1,5 +1,4 @@
 'use client'
-// src/app/(dashboard)/eleves/page.tsx
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
@@ -7,12 +6,91 @@ import { Card, SelectorBar } from '@/components/ui/Card'
 import ClasseSelector from '@/components/ui/ClasseSelector'
 import type { Niveau, Division, Eleve } from '@/types'
 
+// ── Modale d'édition ──────────────────────────────────────────
+function EditModal({
+  eleve,
+  onClose,
+  onSave,
+  isPending,
+}: {
+  eleve: Eleve
+  onClose: () => void
+  onSave: (nom: string, sexe: 'G' | 'F') => void
+  isPending: boolean
+}) {
+  const [nom, setNom]   = useState(eleve.nom)
+  const [sexe, setSexe] = useState<'G' | 'F'>(eleve.sexe)
+
+  function handleSubmit() {
+    if (!nom.trim()) { toast.error('Entrez le nom'); return }
+    onSave(nom.trim(), sexe)
+  }
+
+  return (
+    <div
+      style={{
+        position: 'fixed', inset: 0, zIndex: 1000,
+        background: 'rgba(0,0,0,0.45)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}
+      onClick={onClose}
+    >
+      <div
+        style={{
+          background: 'var(--card-bg, #fff)',
+          borderRadius: '12px',
+          padding: '2rem',
+          width: '100%',
+          maxWidth: '420px',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
+        }}
+        onClick={e => e.stopPropagation()}
+      >
+        <h3 style={{ marginBottom: '1.25rem', fontSize: '1.1rem' }}>
+          ✏️ Modifier l'élève
+        </h3>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div>
+            <label>Prénom et Nom</label>
+            <input
+              type="text"
+              value={nom}
+              autoFocus
+              onChange={e => setNom(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleSubmit()}
+            />
+          </div>
+          <div>
+            <label>Sexe</label>
+            <select value={sexe} onChange={e => setSexe(e.target.value as 'G' | 'F')}>
+              <option value="F">Fille (F)</option>
+              <option value="G">Garçon (G)</option>
+            </select>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.5rem', justifyContent: 'flex-end' }}>
+          <button className="btn btn-secondary" onClick={onClose}>
+            Annuler
+          </button>
+          <button className="btn btn-primary" onClick={handleSubmit} disabled={isPending}>
+            {isPending ? '...' : '💾 Enregistrer'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Page principale ───────────────────────────────────────────
 export default function ElevesPage() {
   const qc = useQueryClient()
   const [niveau, setNiveau] = useState<Niveau>('CI')
-  const [div, setDiv] = useState<Division>('A')
-  const [nom, setNom] = useState('')
-  const [sexe, setSexe] = useState<'G' | 'F'>('F')
+  const [div, setDiv]       = useState<Division>('A')
+  const [nom, setNom]       = useState('')
+  const [sexe, setSexe]     = useState<'G' | 'F'>('F')
+  const [editEleve, setEditEleve] = useState<Eleve | null>(null)  // ← nouveau
 
   const { data: eleves = [], isLoading } = useQuery<Eleve[]>({
     queryKey: ['eleves', niveau, div],
@@ -23,7 +101,6 @@ export default function ElevesPage() {
     },
   })
 
-  // Tri alphabétique par dernier mot (nom de famille)
   const elevesTriés = [...eleves].sort((a, b) => {
     const nomA = a.nom.split(' ').at(-1) ?? a.nom
     const nomB = b.nom.split(' ').at(-1) ?? b.nom
@@ -43,6 +120,22 @@ export default function ElevesPage() {
       toast.success('Élève ajouté(e)')
     },
     onError: () => toast.error("Erreur lors de l'ajout"),
+  })
+
+  // ── Mutation édition ─────────────────────────────────────────
+  const updateEleve = useMutation({
+    mutationFn: ({ id, nom, sexe }: { id: number; nom: string; sexe: 'G' | 'F' }) =>
+      fetch(`/api/eleves/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nom, sexe }),
+      }).then(r => r.json()),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['eleves', niveau, div] })
+      setEditEleve(null)
+      toast.success('Élève modifié(e)')
+    },
+    onError: () => toast.error('Erreur lors de la modification'),
   })
 
   const deleteEleve = useMutation({
@@ -79,106 +172,128 @@ export default function ElevesPage() {
   }
 
   const garcons = eleves.filter(e => e.sexe === 'G').length
-  const filles = eleves.filter(e => e.sexe === 'F').length
+  const filles  = eleves.filter(e => e.sexe === 'F').length
 
   return (
-    <Card title={`Liste des élèves — ${niveau}${div}`}>
-      <SelectorBar>
-        <ClasseSelector
-          niveau={niveau} div={div}
-          onNiveauChange={setNiveau} onDivChange={setDiv}
+    <>
+      {/* Modale montée hors du Card pour éviter les z-index conflicts */}
+      {editEleve && (
+        <EditModal
+          eleve={editEleve}
+          onClose={() => setEditEleve(null)}
+          onSave={(nom, sexe) => updateEleve.mutate({ id: editEleve.id, nom, sexe })}
+          isPending={updateEleve.isPending}
         />
-        <button className="btn btn-secondary btn-sm no-print" onClick={handlePrintListe}>
-          📄 Imprimer liste
-        </button>
-      </SelectorBar>
-
-      {/* Formulaire ajout */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
-        <div>
-          <label>Prénom et Nom</label>
-          <input
-            type="text"
-            value={nom}
-            placeholder="Ex : Fatou Diallo"
-            onChange={e => setNom(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && handleAdd()}
-          />
-        </div>
-        <div>
-          <label>Sexe</label>
-          <select value={sexe} onChange={e => setSexe(e.target.value as 'G' | 'F')}>
-            <option value="F">Fille (F)</option>
-            <option value="G">Garçon (G)</option>
-          </select>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'flex-end' }}>
-          <button className="btn btn-primary" onClick={handleAdd} disabled={addEleve.isPending}>
-            ➕ Ajouter l'élève
-          </button>
-        </div>
-      </div>
-
-      {/* Table */}
-      {isLoading ? (
-        <p style={{ color: 'var(--txt2)' }}>Chargement...</p>
-      ) : elevesTriés.length === 0 ? (
-        <div className="empty">
-          <div className="empty-icon">👤</div>
-          <p>Aucun élève dans cette classe. Ajoutez des élèves ci-dessus.</p>
-        </div>
-      ) : (
-        <>
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>#</th>
-                  <th>Nom et Prénom</th>
-                  <th>Sexe</th>
-                  <th className="no-print">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {elevesTriés.map((e, i) => (
-                  <tr key={e.id}>
-                    <td>{i + 1}</td>
-                    <td><strong>{e.nom}</strong></td>
-                    <td>
-                      <span className={`badge ${e.sexe === 'F' ? 'badge-info' : 'badge-warning'}`}>
-                        {e.sexe}
-                      </span>
-                    </td>
-                    <td className="no-print">
-                      <button
-                        className="btn btn-danger btn-sm"
-                        onClick={() => {
-                          toast((t) => (
-                            <span>
-                              Retirer <strong>{e.nom}</strong> ?{' '}
-                              <button className="btn btn-danger btn-sm" onClick={() => { deleteEleve.mutate(e.id); toast.dismiss(t.id) }}>
-                                Confirmer
-                              </button>{' '}
-                              <button className="btn btn-secondary btn-sm" onClick={() => toast.dismiss(t.id)}>
-                                Annuler
-                              </button>
-                            </span>
-                          ), { duration: 5000 })
-                        }}
-                      >
-                        🗑️ Retirer
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <p style={{ marginTop: '1rem', fontSize: '0.85rem', color: 'var(--txt2)' }}>
-            Total : {elevesTriés.length} élèves — {garcons} garçon(s), {filles} fille(s)
-          </p>
-        </>
       )}
-    </Card>
+
+      <Card title={`Liste des élèves — ${niveau}${div}`}>
+        <SelectorBar>
+          <ClasseSelector
+            niveau={niveau} div={div}
+            onNiveauChange={setNiveau} onDivChange={setDiv}
+          />
+          <button className="btn btn-secondary btn-sm no-print" onClick={handlePrintListe}>
+            📄 Imprimer liste
+          </button>
+        </SelectorBar>
+
+        {/* Formulaire ajout */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
+          <div>
+            <label>Prénom et Nom</label>
+            <input
+              type="text"
+              value={nom}
+              placeholder="Ex : Fatou Diallo"
+              onChange={e => setNom(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleAdd()}
+            />
+          </div>
+          <div>
+            <label>Sexe</label>
+            <select value={sexe} onChange={e => setSexe(e.target.value as 'G' | 'F')}>
+              <option value="F">Fille (F)</option>
+              <option value="G">Garçon (G)</option>
+            </select>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+            <button className="btn btn-primary" onClick={handleAdd} disabled={addEleve.isPending}>
+              ➕ Ajouter l'élève
+            </button>
+          </div>
+        </div>
+
+        {/* Table */}
+        {isLoading ? (
+          <p style={{ color: 'var(--txt2)' }}>Chargement...</p>
+        ) : elevesTriés.length === 0 ? (
+          <div className="empty">
+            <div className="empty-icon">👤</div>
+            <p>Aucun élève dans cette classe. Ajoutez des élèves ci-dessus.</p>
+          </div>
+        ) : (
+          <>
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Nom et Prénom</th>
+                    <th>Sexe</th>
+                    <th className="no-print">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {elevesTriés.map((e, i) => (
+                    <tr key={e.id}>
+                      <td>{i + 1}</td>
+                      <td><strong>{e.nom}</strong></td>
+                      <td>
+                        <span className={`badge ${e.sexe === 'F' ? 'badge-info' : 'badge-warning'}`}>
+                          {e.sexe}
+                        </span>
+                      </td>
+                      <td className="no-print">
+                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                          {/* ── Bouton modifier ── */}
+                          <button
+                            className="btn btn-secondary btn-sm"
+                            onClick={() => setEditEleve(e)}
+                          >
+                            ✏️ Modifier
+                          </button>
+                          {/* ── Bouton supprimer ── */}
+                          <button
+                            className="btn btn-danger btn-sm"
+                            onClick={() => {
+                              toast((t) => (
+                                <span>
+                                  Retirer <strong>{e.nom}</strong> ?{' '}
+                                  <button className="btn btn-danger btn-sm" onClick={() => { deleteEleve.mutate(e.id); toast.dismiss(t.id) }}>
+                                    Confirmer
+                                  </button>{' '}
+                                  <button className="btn btn-secondary btn-sm" onClick={() => toast.dismiss(t.id)}>
+                                    Annuler
+                                  </button>
+                                </span>
+                              ), { duration: 5000 })
+                            }}
+                          >
+                            🗑️ Retirer
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p style={{ marginTop: '1rem', fontSize: '0.85rem', color: 'var(--txt2)' }}>
+              Total : {elevesTriés.length} élèves — {garcons} garçon(s), {filles} fille(s)
+            </p>
+          </>
+        )}
+      </Card>
+    </>
   )
 }

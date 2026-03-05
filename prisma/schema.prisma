@@ -91,3 +91,12 @@ model Appreciation {
   @@unique([eleveId, compo])
   @@map("appreciations")
 }
+model ResetToken {
+  id        Int      @id @default(autoincrement())
+  email     String
+  token     String
+  expiresAt DateTime
+  used      Boolean  @default(false)
+
+  @@map("reset_tokens")
+}
