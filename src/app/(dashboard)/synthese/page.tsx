@@ -85,8 +85,8 @@ export default function SynthesePage() {
   <meta charset="UTF-8">
   <title>Synthèse — Classe ${niveau}${div} — ${COMPO_LABELS[compo]}</title>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: Arial, sans-serif; padding: 2rem; color: #1a1a1a; font-size: 0.9rem; }
+* { box-sizing: border-box; margin: 0; padding: 0;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact; }    body { font-family: Arial, sans-serif; padding: 2rem; color: #1a1a1a; font-size: 0.9rem; }
     .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #1a6b3a; padding-bottom: 1rem; margin-bottom: 1.5rem; }
     .titre { font-size: 1.3rem; font-weight: 700; color: #1a6b3a; text-align: center; }
     .sous-titre { font-size: 0.85rem; color: #555; text-align: center; margin-top: 3px; }
@@ -100,8 +100,11 @@ export default function SynthesePage() {
     table { width: 100%; border-collapse: collapse; margin-bottom: 1rem; font-size: 0.85rem; }
     th { background: #1a6b3a; color: #fff; padding: 9px 10px; text-align: left; font-size: 0.78rem; text-transform: uppercase; }
     .footer { margin-top: 2rem; display: flex; justify-content: space-between; font-size: 0.8rem; color: #777; border-top: 1px solid #ddd; padding-top: 1rem; }
-    @media print { body { padding: 1rem; } @page { margin: 1cm; } }
-  </style>
+@media print {
+  body { padding: 1rem; }
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  @page { margin: 1cm; }
+}  </style>
 </head>
 <body>
   <div class="header">

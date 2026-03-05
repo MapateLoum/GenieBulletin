@@ -80,6 +80,7 @@ const elevesAvecRangs: EleveMoyenne[] = computeElevesAvecRangs(eleves, notes, ma
     <>
       <style>{`
         /* ─── Styles communs ─── */
+        * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         .bulletin-wrap {
           background: #fff;
           border: 1px solid var(--border);
@@ -106,6 +107,8 @@ const elevesAvecRangs: EleveMoyenne[] = computeElevesAvecRangs(eleves, notes, ma
           display: flex; justify-content: space-between; font-size: 0.72rem;
           color: #666; border-top: 1px solid #eee; padding-top: 6px;
           flex-wrap: wrap; gap: 0.3rem;
+          margin-top: 1rem;        /* ← ajouter */
+          min-height: 40px;        /* ← ajouter */
         }
 
         /* Mobile */
@@ -118,8 +121,10 @@ const elevesAvecRangs: EleveMoyenne[] = computeElevesAvecRangs(eleves, notes, ma
 
         /* ─── Impression : 2 bulletins côte à côte ─── */
         @media print {
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
           @page { size: A4 landscape; margin: 8mm; }
-
+          ...
           .no-print, .card-header { display: none !important; }
           body, .card { background: #fff !important; box-shadow: none !important; padding: 0 !important; }
 
@@ -156,7 +161,11 @@ const elevesAvecRangs: EleveMoyenne[] = computeElevesAvecRangs(eleves, notes, ma
           .blt-table th { padding: 2px 4px; font-size: 0.6rem; }
           .blt-table td { padding: 2px 4px; }
           .blt-box { padding: 4px 6px; min-width: 80px; }
-          .blt-sigs { font-size: 0.6rem; padding-top: 4px; }
+          .blt-sigs { 
+            font-size: 0.6rem; 
+            padding-top: 4px;
+            margin-top: 8mm;  /* ← ajouter */
+          }          
           .blt-header { margin-bottom: 2mm; padding-bottom: 2mm; }
           .blt-resume { margin-bottom: 2mm; gap: 3px; }
           .blt-appr-print { font-size: 0.65rem; border: 1px solid #ddd; border-radius: 4px; padding: 3px 6px; min-height: 28px; }
@@ -325,9 +334,18 @@ function BulletinContent({
       </div>
 
       <div className="blt-sigs">
-        <div>Maître(sse) : <strong>{config?.nomMaitre || '—'}</strong></div>
-        <div>Signature directeur : ____________</div>
-        <div>Signature parents : ____________</div>
+        <div>
+          <div>Maître(sse) : <strong>{config?.nomMaitre || '—'}</strong></div>
+          <div style={{ marginTop: '8mm', borderTop: '1px solid #999', paddingTop: 2, fontSize: '0.6rem' }}>Signature</div>
+        </div>
+        <div>
+          <div>Signature directeur</div>
+          <div style={{ marginTop: '8mm', borderTop: '1px solid #999', paddingTop: 2, fontSize: '0.6rem' }}>Signature</div>
+        </div>
+        <div>
+          <div>Signature parents</div>
+          <div style={{ marginTop: '8mm', borderTop: '1px solid #999', paddingTop: 2, fontSize: '0.6rem' }}>Signature</div>
+        </div>
       </div>
     </>
   )
