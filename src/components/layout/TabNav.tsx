@@ -6,10 +6,11 @@ import { useSession } from 'next-auth/react'
 import styles from './TabNav.module.css'
 
 const TABS_COMMUNS = [
-  { href: '/eleves',    emoji: '👨‍🎓', label: 'Élèves',    key: 'eleves' },
-  { href: '/notes',     emoji: '📝', label: 'Notes',     key: 'notes' },
-  { href: '/synthese',  emoji: '📊', label: 'Synthèse',  key: 'synthese' },
-  { href: '/bulletins', emoji: '🖨️', label: 'Bulletins', key: 'bulletins' },
+  { href: '/configuration', emoji: '⚙️', label: 'Config',    key: 'config' },
+  { href: '/eleves',        emoji: '👨‍🎓', label: 'Élèves',    key: 'eleves' },
+  { href: '/notes',         emoji: '📝', label: 'Notes',     key: 'notes' },
+  { href: '/synthese',      emoji: '📊', label: 'Synthèse',  key: 'synthese' },
+  { href: '/bulletins',     emoji: '🖨️', label: 'Bulletins', key: 'bulletins' },
 ]
 
 const TABS_DIRECTEUR = [
