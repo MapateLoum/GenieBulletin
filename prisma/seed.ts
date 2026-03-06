@@ -7,18 +7,21 @@ const prisma = new PrismaClient()
 async function main() {
   console.log('🌱 Seeding database...')
 
+  const seedEmail    = process.env.SEED_DIRECTEUR_EMAIL    ?? 'directeur@geniebulletin.sn'
+  const seedPassword = process.env.SEED_DIRECTEUR_PASSWORD ?? 'directeur123'
+
   // ── Config par défaut ─────────────────────────────────────
   const configCount = await prisma.config.count()
   if (configCount === 0) {
     await prisma.config.create({
       data: {
-        nomEcole: '',
-        annee: '2025 - 2026',
-        nomDirecteur: '',
-        localite: '',
-        nomMaitre: '',
-        classeActive: 'CI',
-        divActive: 'A',
+        nomEcole:    '',
+        annee:       '2025 - 2026',
+        nomDirecteur:'',
+        localite:    '',
+        nomMaitre:   '',
+        classeActive:'CI',
+        divActive:   'A',
       },
     })
     console.log('✅ Config créée')
@@ -26,24 +29,24 @@ async function main() {
 
   // ── Compte directeur ──────────────────────────────────────
   const directeurExiste = await prisma.user.findUnique({
-    where: { email: 'directeur@geniebulletin.sn' }
+    where: { email: seedEmail }
   })
 
   if (!directeurExiste) {
-    const hash = await bcrypt.hash('directeur123', 12)
+    const hash = await bcrypt.hash(seedPassword, 12)
     await prisma.user.create({
       data: {
-        email: 'directeur@geniebulletin.sn',
+        email:    seedEmail,
         password: hash,
-        nom: 'Directeur',
-        role: 'directeur',
-        niveau: null,
-        div: null,
+        nom:      'Directeur',
+        role:     'directeur',
+        niveau:   null,
+        div:      null,
       }
     })
     console.log('✅ Compte directeur créé')
-    console.log('📧 Email    : directeur@geniebulletin.sn')
-    console.log('🔑 Password : directeur123')
+    console.log(`📧 Email    : ${seedEmail}`)
+    console.log('🔑 Password : (défini dans .env)')
     console.log('⚠️  Changez le mot de passe après la première connexion !')
   } else {
     console.log('✅ Directeur existe déjà')
