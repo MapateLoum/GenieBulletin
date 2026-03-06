@@ -15,7 +15,6 @@ const UserSchema = z.object({
   div:      z.string().nullable().optional(),
 })
 
-// Vérifier que c'est le directeur
 async function checkDirecteur() {
   const session = await getServerSession(authOptions)
   if (!session || session.user.role !== 'directeur') return false
@@ -40,6 +39,26 @@ export async function POST(req: Request) {
   try {
     const body = await req.json()
     const data = UserSchema.parse(body)
+
+    // Vérifier email déjà utilisé EN PREMIER
+    const emailExiste = await prisma.user.findUnique({ where: { email: data.email } })
+    if (emailExiste) {
+      return NextResponse.json({ error: 'Cet email est déjà utilisé' }, { status: 409 })
+    }
+
+    // Vérifier classe déjà occupée
+    if (data.role === 'maitre' && data.niveau && data.div) {
+      const classeOccupee = await prisma.user.findFirst({
+        where: { role: 'maitre', niveau: data.niveau, div: data.div },
+      })
+      if (classeOccupee) {
+        return NextResponse.json(
+          { error: `La classe ${data.niveau}${data.div} a déjà un maître (${classeOccupee.nom}). Supprimez-le d'abord.` },
+          { status: 409 }
+        )
+      }
+    }
+
     const hash = await bcrypt.hash(data.password, 12)
     const user = await prisma.user.create({
       data: {
@@ -48,13 +67,13 @@ export async function POST(req: Request) {
         nom:      data.nom,
         role:     data.role,
         niveau:   data.role === 'maitre' ? data.niveau ?? null : null,
-        div:      data.role === 'maitre' ? data.div ?? null : null,
+        div:      data.role === 'maitre' ? data.div    ?? null : null,
       },
       select: { id: true, email: true, nom: true, role: true, niveau: true, div: true, createdAt: true },
     })
     return NextResponse.json(user, { status: 201 })
   } catch (e) {
     if (e instanceof z.ZodError) return NextResponse.json({ error: e.errors }, { status: 400 })
-    return NextResponse.json({ error: 'Email déjà utilisé ou erreur serveur' }, { status: 500 })
+    return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
   }
 }
