@@ -66,10 +66,26 @@ export async function POST(req: Request) {
       }
     }
 
+    // ── Vérification unicité : même nom (insensible à la casse) + même classe + même compo ──
+    const existing = await prisma.matiere.findFirst({
+      where: {
+        nom:    { equals: data.nom.trim(), mode: 'insensitive' },
+        niveau,
+        div,
+        compo,
+      },
+    })
+    if (existing) {
+      return NextResponse.json(
+        { error: `La matière "${data.nom}" existe déjà dans cette classe pour cette composition.` },
+        { status: 409 }
+      )
+    }
+
     const count = await prisma.matiere.count({ where: { niveau, div, compo } })
     const matiere = await prisma.matiere.create({
       data: {
-        nom:       data.nom,
+        nom:       data.nom.trim(),
         coef:      data.coef,
         bareme:    data.bareme,
         groupeNom: data.groupeNom ?? null,

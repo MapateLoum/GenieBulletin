@@ -166,18 +166,24 @@ export default function ConfigurationPage() {
     onError: () => toast.error('Accès refusé — seul le directeur peut modifier la configuration'),
   })
 
+  // ── addMatiere : lit le message d'erreur renvoyé par l'API ──
   const addMatiere = useMutation({
-    mutationFn: (data: { nom: string; coef: number; bareme: number; groupeNom: string | null; compo: number; niveau?: string; div?: string }) =>
-      fetch('/api/matieres', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }).then(r => {
-        if (!r.ok) throw new Error('Erreur')
-        return r.json()
-      }),
+    mutationFn: async (data: { nom: string; coef: number; bareme: number; groupeNom: string | null; compo: number; niveau?: string; div?: string }) => {
+      const r = await fetch('/api/matieres', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      })
+      const json = await r.json()
+      if (!r.ok) throw new Error(json.error ?? "Erreur lors de l'ajout")
+      return json
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['matieres', effectifNiveau, effectifDiv, effectifCompo] })
       setNewMat({ nom: '', coef: 1, bareme: 10, groupeNom: '' })
       toast.success('Matière ajoutée')
     },
-    onError: () => toast.error("Erreur lors de l'ajout"),
+    onError: (err: Error) => toast.error(err.message),
   })
 
   const updateMatiere = useMutation({
