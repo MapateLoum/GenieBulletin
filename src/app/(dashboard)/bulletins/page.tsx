@@ -64,6 +64,8 @@ export default function BulletinsPage() {
   const [div, setDiv] = useState<Division>('A')
   const [compo, setCompo] = useState(1)
   const apprTimers = useRef<Record<number, ReturnType<typeof setTimeout>>>({})
+  const [recherche, setRecherche] = useState('')
+  const [showSuggestions, setShowSuggestions] = useState(false)
 
   const { data: me } = useQuery({
     queryKey: ['me'],
@@ -131,6 +133,10 @@ export default function BulletinsPage() {
       return a.rang - b.rang
     })
 
+  const elevesFiltres = recherche.trim()
+    ? elevesAvecRangs.filter(e => e.nom.toLowerCase().includes(recherche.trim().toLowerCase()))
+    : elevesAvecRangs
+
   function getAppr(eleveId: number): string {
     return appreciations.find(a => a.eleveId === eleveId)?.texte ?? ''
   }
@@ -151,7 +157,19 @@ export default function BulletinsPage() {
     }, 800)
   }
 
-  function handlePrint() { window.print() }
+  function handlePrintOne(eleveId: number) {
+    const nom = elevesAvecRangs.find(e => e.id === eleveId)?.nom ?? ''
+    setRecherche(nom)
+    setTimeout(() => {
+      window.print()
+      setTimeout(() => setRecherche(''), 500)
+    }, 150)
+  }
+
+  function handlePrint() {
+    setRecherche('')
+    setTimeout(() => window.print(), 100)
+  }
 
   if (!eleves.length) return (
     <Card title="Génération des bulletins">
@@ -235,12 +253,50 @@ export default function BulletinsPage() {
           <ClasseSelector niveau={niveau} div={div} compo={compo}
             onNiveauChange={setNiveau} onDivChange={setDiv}
             onCompoChange={setCompo} showCompo />
+          <div style={{ position: 'relative' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <input
+                type="text"
+                placeholder="🔍 Rechercher un élève..."
+                value={recherche}
+                onChange={e => { setRecherche(e.target.value); setShowSuggestions(true) }}
+                onFocus={() => setShowSuggestions(true)}
+                onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+                style={{ padding: '6px 10px', borderRadius: '8px', border: '1.5px solid var(--border)', fontSize: '0.85rem', width: 220 }}
+              />
+              {recherche && (
+                <button className="btn btn-secondary btn-sm" onClick={() => { setRecherche(''); setShowSuggestions(false) }}>✕</button>
+              )}
+            </div>
+            {showSuggestions && recherche.trim() && elevesFiltres.length > 0 && (
+              <div style={{
+                position: 'absolute', top: '100%', left: 0, zIndex: 100, marginTop: 4,
+                background: '#fff', border: '1px solid var(--border)', borderRadius: '8px',
+                boxShadow: '0 4px 16px rgba(0,0,0,0.12)', minWidth: 220, overflow: 'hidden'
+              }}>
+                {elevesFiltres.map(e => (
+                  <div
+                    key={e.id}
+                    style={{ padding: '8px 12px', cursor: 'pointer', fontSize: '0.88rem', borderBottom: '1px solid #f0f0f0' }}
+                    onMouseDown={() => { setRecherche(e.nom); setShowSuggestions(false) }}
+                    onMouseEnter={ev => (ev.currentTarget.style.background = '#f0faf5')}
+                    onMouseLeave={ev => (ev.currentTarget.style.background = '')}
+                  >
+                    <strong>{e.nom}</strong>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
           <button className="btn btn-or" onClick={handlePrint}>🖨️ Imprimer tous</button>
         </SelectorBar>
 
         <div className="screen-list">
-          {elevesAvecRangs.map((e) => (
+          {elevesFiltres.map((e) => (
             <div key={e.id} className="bulletin-wrap">
+              <div className="no-print" style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '0.4rem' }}>
+                <button className="btn btn-or btn-sm" onClick={() => handlePrintOne(e.id)}>🖨️ Imprimer ce bulletin</button>
+              </div>
               <BulletinContent
                 e={e} config={config} me={me} niveau={niveau} div={div}
                 eleves={eleves} matieres={matieres} notes={notes}
@@ -253,8 +309,8 @@ export default function BulletinsPage() {
         </div>
 
         <div className="print-list">
-          {Array.from({ length: Math.ceil(elevesAvecRangs.length / 2) }, (_, i) => {
-            const pair = elevesAvecRangs.slice(i * 2, i * 2 + 2)
+          {Array.from({ length: Math.ceil(elevesFiltres.length / 2) }, (_, i) => {
+            const pair = elevesFiltres.slice(i * 2, i * 2 + 2)
             return (
               <div key={i} className="print-page">
                 {pair.map((e) => (
@@ -269,6 +325,7 @@ export default function BulletinsPage() {
                     />
                   </div>
                 ))}
+                {pair.length === 1 && <div className="bulletin-wrap" style={{ visibility: 'hidden' }} />}
               </div>
             )
           })}
