@@ -39,12 +39,26 @@ export async function GET(req: Request) {
       : null
 
     const matiereStats = matieres.map((m) => {
-      const notesMat = notes.filter((n) => n.matiereId === m.id && n.valeur !== null).map((n) => n.valeur as number)
+      const notesMat = notes
+        .filter((n) => n.matiereId === m.id && n.valeur !== null)
+        .map((n) => n.valeur as number)
+
+      const moyenneClasse = notesMat.length
+        ? Math.round((notesMat.reduce((s, n) => s + n, 0) / notesMat.length) * 100) / 100
+        : null
+
+      // % réussite : élèves ayant ≥ 5/10 dans cette matière (note ramenée sur 10)
+      const avecReussite = notesMat.filter((v) => (v / m.bareme) * 10 >= 5).length
+      const pctReussite = notesMat.length
+        ? Math.round((avecReussite / notesMat.length) * 100)
+        : null
+
       return {
         matiere: m,
-        moyenneClasse: notesMat.length ? Math.round((notesMat.reduce((s, n) => s + n, 0) / notesMat.length) * 100) / 100 : null,
+        moyenneClasse,
         max: notesMat.length ? Math.max(...notesMat) : null,
         min: notesMat.length ? Math.min(...notesMat) : null,
+        pctReussite,
       }
     })
 

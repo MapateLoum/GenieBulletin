@@ -25,6 +25,7 @@ export interface Matiere {
   niveau: string
   div: string
   compo: number
+  groupeNom: string | null
 }
 
 export interface Eleve {

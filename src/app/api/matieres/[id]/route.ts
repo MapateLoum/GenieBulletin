@@ -49,7 +49,15 @@ export async function PUT(
     }
 
     const body = await req.json()
-    const matiere = await prisma.matiere.update({ where: { id }, data: body })
+
+    // Extraire uniquement les champs modifiables
+    const updateData: Record<string, any> = {}
+    if (body.nom       !== undefined) updateData.nom       = body.nom
+    if (body.coef      !== undefined) updateData.coef      = body.coef
+    if (body.bareme    !== undefined) updateData.bareme    = body.bareme
+    if (body.groupeNom !== undefined) updateData.groupeNom = body.groupeNom || null
+
+    const matiere = await prisma.matiere.update({ where: { id }, data: updateData })
     return NextResponse.json(matiere)
   } catch {
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })

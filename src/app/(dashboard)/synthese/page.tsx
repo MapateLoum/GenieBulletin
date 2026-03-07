@@ -22,6 +22,69 @@ type BilanAnnuel = {
   decision:        string | null
 }
 
+type MatiereStat = {
+  matiere: { id: number; nom: string; coef: number; bareme: number; groupeNom?: string | null }
+  moyenneClasse: number | null
+  max: number | null
+  min: number | null
+  pctReussite: number | null
+}
+
+type GroupeStat = {
+  nom: string
+  baremeTotal: number
+  moyenneClasse: number | null
+  max: number | null
+  min: number | null
+  pctReussite: number | null
+}
+
+// Regroupe les matiereStats pour l'affichage synthèse
+function buildGroupeStats(matiereStats: MatiereStat[]): { simples: MatiereStat[]; groupes: GroupeStat[] } {
+  const simples: MatiereStat[] = []
+  const groupeMap = new Map<string, MatiereStat[]>()
+
+  for (const ms of matiereStats) {
+    const g = ms.matiere.groupeNom
+    if (g) {
+      if (!groupeMap.has(g)) groupeMap.set(g, [])
+      groupeMap.get(g)!.push(ms)
+    } else {
+      simples.push(ms)
+    }
+  }
+
+  const groupes: GroupeStat[] = []
+  groupeMap.forEach((membres, nom) => {
+    const baremeTotal = membres.reduce((s, m) => s + m.matiere.bareme, 0)
+    // Moyenne groupe = moyenne pondérée des moyennes classe (par barème)
+    const avecMoy = membres.filter(m => m.moyenneClasse !== null)
+    const moyenneClasse = avecMoy.length > 0
+      ? Math.round(
+          avecMoy.reduce((s, m) => s + (m.moyenneClasse! * m.matiere.bareme), 0) /
+          avecMoy.reduce((s, m) => s + m.matiere.bareme, 0) * 100
+        ) / 100
+      : null
+    const maxVals = membres.map(m => m.max).filter(v => v !== null) as number[]
+    const minVals = membres.map(m => m.min).filter(v => v !== null) as number[]
+    // % réussite groupe = moyenne des % réussite des membres (pondérée)
+    const avecPct = membres.filter((m: any) => m.pctReussite !== null)
+    const pctReussite = avecPct.length
+      ? Math.round(avecPct.reduce((s: number, m: any) => s + m.pctReussite!, 0) / avecPct.length)
+      : null
+    groupes.push({
+      nom,
+      baremeTotal,
+      moyenneClasse,
+      max: maxVals.length ? Math.max(...maxVals) : null,
+      min: minVals.length ? Math.min(...minVals) : null,
+      pctReussite,
+    })
+  })
+
+  return { simples, groupes }
+}
+
 export default function SynthesePage() {
   const [niveau, setNiveau] = useState<Niveau>('CI')
   const [div, setDiv] = useState<Division>('A')
@@ -94,14 +157,26 @@ export default function SynthesePage() {
       </tr>`
     }).join('')
 
-    const matiereRowsHTML = data.matiereStats.map((ms: any) => `
+    // Stats par matière/groupe pour l'impression
+    const { simples, groupes } = buildGroupeStats(data.matiereStats)
+
+    const groupeRowsHTML = groupes.map(g => `
+      <tr style="background:#f0faf5;font-weight:700">
+        <td style="padding:8px 10px;border-bottom:1px solid #eee"><strong>${g.nom}</strong></td>
+        <td style="padding:8px 10px;border-bottom:1px solid #eee;text-align:center">${g.moyenneClasse ?? '—'}</td>
+        <td style="padding:8px 10px;border-bottom:1px solid #eee;text-align:center">${g.max ?? '—'}</td>
+        <td style="padding:8px 10px;border-bottom:1px solid #eee;text-align:center">${g.min ?? '—'}</td>
+        <td style="padding:8px 10px;border-bottom:1px solid #eee;text-align:center;font-weight:700;color:${g.pctReussite !== null && g.pctReussite >= 50 ? '#1a6b3a' : '#c0392b'}">${g.pctReussite !== null ? g.pctReussite + '%' : '—'}</td>
+      </tr>
+    `).join('')
+
+    const simpleRowsHTML = simples.map((ms: MatiereStat) => `
       <tr>
         <td style="padding:8px 10px;border-bottom:1px solid #eee"><strong>${ms.matiere.nom}</strong></td>
-        <td style="padding:8px 10px;border-bottom:1px solid #eee;text-align:center">×${ms.matiere.coef}</td>
-        <td style="padding:8px 10px;border-bottom:1px solid #eee;text-align:center">/${ms.matiere.bareme}</td>
         <td style="padding:8px 10px;border-bottom:1px solid #eee;text-align:center">${ms.moyenneClasse ?? '—'}</td>
         <td style="padding:8px 10px;border-bottom:1px solid #eee;text-align:center">${ms.max ?? '—'}</td>
         <td style="padding:8px 10px;border-bottom:1px solid #eee;text-align:center">${ms.min ?? '—'}</td>
+        <td style="padding:8px 10px;border-bottom:1px solid #eee;text-align:center;font-weight:700;color:${ms.pctReussite !== null && ms.pctReussite >= 50 ? '#1a6b3a' : '#c0392b'}">${ms.pctReussite !== null ? ms.pctReussite + '%' : '—'}</td>
       </tr>
     `).join('')
 
@@ -141,8 +216,8 @@ export default function SynthesePage() {
   <div class="taux">Taux de réussite : <strong>${avecMoyennePct}%</strong> — ${data.stats.avecMoyenne} élève(s) sur ${data.stats.effectif} ont obtenu la moyenne</div>
   <h3>🏆 Classement des élèves</h3>
   <table><thead><tr><th>Rang</th><th>Nom et Prénom</th><th style="text-align:center">Sexe</th><th style="text-align:center">Moy./10</th><th style="text-align:center">Mention</th><th style="text-align:center">A la moyenne</th></tr></thead><tbody>${rowsHTML}</tbody></table>
-  <h3>📚 Statistiques par matière</h3>
-  <table><thead><tr><th>Matière</th><th style="text-align:center">Coef</th><th style="text-align:center">Barème</th><th style="text-align:center">Moy. classe</th><th style="text-align:center">Max</th><th style="text-align:center">Min</th></tr></thead><tbody>${matiereRowsHTML}</tbody></table>
+  <h3>📚 Statistiques par matière / groupe</h3>
+  <table><thead><tr><th>Matière / Groupe</th><th style="text-align:center">Moy. classe</th><th style="text-align:center">Max</th><th style="text-align:center">Min</th><th style="text-align:center">% Réussite</th></tr></thead><tbody>${groupeRowsHTML}${simpleRowsHTML}</tbody></table>
   <div class="footer"><div>Signature du Directeur : _______________________</div><div>Signature du Maître/Maîtresse : _______________________</div></div>
 </body></html>`
 
@@ -243,6 +318,11 @@ export default function SynthesePage() {
     ? Math.round((avecMoyAnnuel.reduce((s, e) => s + (e.moyenneAnnuelle ?? 0), 0) / avecMoyAnnuel.length) * 100) / 100
     : null
 
+  // Groupes pour l'affichage dans l'interface
+  const { simples: simplesUI, groupes: groupesUI } = data?.matiereStats
+    ? buildGroupeStats(data.matiereStats)
+    : { simples: [], groupes: [] }
+
   return (
     <Card title="Synthèse de composition">
       <SelectorBar>
@@ -327,21 +407,31 @@ export default function SynthesePage() {
             </table>
           </div>
 
-          <h3 style={{ fontFamily: 'var(--font-playfair)', color: 'var(--vert)', marginBottom: '1rem' }}>📚 Statistiques par matière</h3>
+          <h3 style={{ fontFamily: 'var(--font-playfair)', color: 'var(--vert)', marginBottom: '1rem' }}>📚 Statistiques par matière / groupe</h3>
           <div className="table-wrap">
             <table>
               <thead>
-                <tr><th>Matière</th><th>Coef</th><th>Barème</th><th>Moy. classe</th><th>Max</th><th>Min</th></tr>
+                <tr><th>Matière / Groupe</th><th>Moy. classe</th><th>Max</th><th>Min</th><th>% Réussite</th></tr>
               </thead>
               <tbody>
-                {data.matiereStats.map((ms: any) => (
+                {/* Groupes d'abord */}
+                {groupesUI.map((g) => (
+                  <tr key={`groupe-${g.nom}`} style={{ background: '#f0faf5' }}>
+                    <td><strong>{g.nom}</strong> <span style={{ fontSize: '0.72rem', color: 'var(--vert)', fontWeight: 400 }}>(groupe)</span></td>
+                    <td>{g.moyenneClasse ?? '—'}</td>
+                    <td>{g.max ?? '—'}</td>
+                    <td>{g.min ?? '—'}</td>
+                    <td>{g.pctReussite !== null && g.pctReussite !== undefined ? <span style={{ fontWeight: 700, color: g.pctReussite >= 50 ? 'var(--vert)' : '#c0392b' }}>{g.pctReussite}%</span> : '—'}</td>
+                  </tr>
+                ))}
+                {/* Matières simples */}
+                {simplesUI.map((ms: MatiereStat) => (
                   <tr key={ms.matiere.id}>
                     <td><strong>{ms.matiere.nom}</strong></td>
-                    <td>×{ms.matiere.coef}</td>
-                    <td>/{ms.matiere.bareme}</td>
                     <td>{ms.moyenneClasse ?? '—'}</td>
                     <td>{ms.max ?? '—'}</td>
                     <td>{ms.min ?? '—'}</td>
+                    <td>{ms.pctReussite !== null && ms.pctReussite !== undefined ? <span style={{ fontWeight: 700, color: ms.pctReussite >= 50 ? 'var(--vert)' : '#c0392b' }}>{ms.pctReussite}%</span> : '—'}</td>
                   </tr>
                 ))}
               </tbody>

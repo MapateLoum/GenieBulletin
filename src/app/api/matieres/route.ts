@@ -6,9 +6,10 @@ import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
 
 const MatiereSchema = z.object({
-  nom:    z.string().min(1).max(100),
-  coef:   z.number().int().min(1).max(10),
-  bareme: z.number().int(),
+  nom:       z.string().min(1).max(100),
+  coef:      z.number().int().min(1).max(10),
+  bareme:    z.number().int(),
+  groupeNom: z.string().max(100).nullable().optional(),
 })
 
 export async function GET(req: Request) {
@@ -67,7 +68,16 @@ export async function POST(req: Request) {
 
     const count = await prisma.matiere.count({ where: { niveau, div, compo } })
     const matiere = await prisma.matiere.create({
-      data: { ...data, niveau, div, compo, ordre: count + 1 },
+      data: {
+        nom:       data.nom,
+        coef:      data.coef,
+        bareme:    data.bareme,
+        groupeNom: data.groupeNom ?? null,
+        niveau,
+        div,
+        compo,
+        ordre: count + 1,
+      },
     })
     return NextResponse.json(matiere, { status: 201 })
   } catch (e) {

@@ -17,6 +17,48 @@ type BilanAnnuel = {
   decision:        string | null
 }
 
+// ── Ligne de matière regroupée (pour l'affichage bulletin) ────
+type LigneBulletin =
+  | { type: 'simple'; matiere: Matiere; note: number | null; sur10: number | null }
+  | { type: 'groupe'; nom: string; noteTotal: number | null; baremeTotal: number; sur10: number | null; matieres: Matiere[] }
+
+function buildLignesBulletin(matieres: Matiere[], notes: Note[], eleveId: number): LigneBulletin[] {
+  const lignes: LigneBulletin[] = []
+  const groupesTraites = new Set<string>()
+
+  for (const m of matieres) {
+    if (m.groupeNom) {
+      if (groupesTraites.has(m.groupeNom)) continue
+      groupesTraites.add(m.groupeNom)
+
+      // Toutes les matières du groupe
+      const membres = matieres.filter(x => x.groupeNom === m.groupeNom)
+      const baremeTotal = membres.reduce((s, x) => s + x.bareme, 0)
+
+      // Somme des notes — null si au moins une note manque
+      let noteTotal: number | null = 0
+      for (const mb of membres) {
+        const n = notes.find(n => n.eleveId === eleveId && n.matiereId === mb.id)
+        if (n?.valeur === null || n?.valeur === undefined) { noteTotal = null; break }
+        noteTotal += n.valeur
+      }
+
+      const sur10 = noteTotal !== null && baremeTotal > 0
+        ? Math.round((noteTotal / baremeTotal) * 10 * 100) / 100
+        : null
+
+      lignes.push({ type: 'groupe', nom: m.groupeNom, noteTotal, baremeTotal, sur10, matieres: membres })
+    } else {
+      const note = notes.find(n => n.eleveId === eleveId && n.matiereId === m.id)
+      const val = note?.valeur ?? null
+      const sur10 = val !== null ? Math.round((val / m.bareme) * 10 * 100) / 100 : null
+      lignes.push({ type: 'simple', matiere: m, note: val, sur10 })
+    }
+  }
+
+  return lignes
+}
+
 export default function BulletinsPage() {
   const [niveau, setNiveau] = useState<Niveau>('CI')
   const [div, setDiv] = useState<Division>('A')
@@ -42,7 +84,6 @@ export default function BulletinsPage() {
     },
   })
 
-  // Matières spécifiques à la composition
   const { data: matieres = [] } = useQuery<Matiere[]>({
     queryKey: ['matieres', niveau, div, compo],
     queryFn: async () => {
@@ -144,6 +185,7 @@ export default function BulletinsPage() {
         .blt-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; min-width: 300px; }
         .blt-table th { background: var(--vert); color: #fff; padding: 5px 7px; font-size: 0.72rem; text-transform: uppercase; }
         .blt-table td { padding: 4px 7px; border-bottom: 1px solid #eee; vertical-align: middle; }
+        .blt-table tr.groupe-row td { background: #f0faf5; font-weight: 700; }
         .blt-resume { display: flex; gap: 0.6rem; flex-wrap: wrap; align-items: flex-start; margin-bottom: 0.6rem; }
         .blt-box { flex: 1; min-width: 110px; border-radius: 8px; padding: 8px; text-align: center; }
         .blt-appr { flex: 2; min-width: 160px; }
@@ -247,6 +289,7 @@ function BulletinContent({
   isPrint?: boolean
 }) {
   const nomMaitre = me?.nom || config?.nomMaitre || '—'
+  const lignes = buildLignesBulletin(matieres, notes, e.id)
 
   return (
     <>
@@ -277,24 +320,29 @@ function BulletinContent({
           <thead>
             <tr>
               <th style={{ textAlign: 'left' }}>Matière</th>
-              <th style={{ textAlign: 'center' }}>Barème</th>
               <th style={{ textAlign: 'center' }}>Note</th>
-              <th style={{ textAlign: 'center' }}>Note/10</th>
+              <th style={{ textAlign: 'center' }}>Barème</th>
             </tr>
           </thead>
           <tbody>
-            {matieres.map(m => {
-              const note = notes.find(n => n.eleveId === e.id && n.matiereId === m.id)
-              const val = note?.valeur
-              const sur10 = val !== null && val !== undefined ? Math.round((val / m.bareme) * 10 * 100) / 100 : null
-              return (
-                <tr key={m.id}>
-                  <td>{m.nom}</td>
-                  <td style={{ textAlign: 'center' }}>/{m.bareme}</td>
-                  <td style={{ textAlign: 'center' }}><strong>{val !== null && val !== undefined ? val : '—'}</strong></td>
-                  <td style={{ textAlign: 'center' }}>{sur10 !== null ? `${sur10}/10` : '—'}</td>
-                </tr>
-              )
+            {lignes.map((ligne, idx) => {
+              if (ligne.type === 'groupe') {
+                return (
+                  <tr key={`groupe-${idx}`} className="groupe-row">
+                    <td>{ligne.nom}</td>
+                    <td style={{ textAlign: 'center' }}><strong>{ligne.noteTotal !== null ? ligne.noteTotal : '—'}</strong></td>
+                    <td style={{ textAlign: 'center' }}>/{ligne.baremeTotal}</td>
+                  </tr>
+                )
+              } else {
+                return (
+                  <tr key={ligne.matiere.id}>
+                    <td>{ligne.matiere.nom}</td>
+                    <td style={{ textAlign: 'center' }}><strong>{ligne.note !== null ? ligne.note : '—'}</strong></td>
+                    <td style={{ textAlign: 'center' }}>/{ligne.matiere.bareme}</td>
+                  </tr>
+                )
+              }
             })}
           </tbody>
         </table>
