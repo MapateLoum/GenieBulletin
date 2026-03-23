@@ -103,15 +103,17 @@ export default function NotesPage() {
   const groupes = buildGroupes(matieres)
 
   function handleNoteChange(eleveId: number, matiereId: number, rawVal: string, bareme: number) {
+    // Validation immédiate — on bloque avant même de mettre à jour l'état local
+    const val = rawVal === '' ? null : parseFloat(rawVal)
+    if (val !== null && (isNaN(val) || val < 0 || val > bareme)) {
+      toast.error(`Note invalide (max ${bareme})`)
+      return // ← on sort immédiatement, rien n'est mis à jour ni envoyé
+    }
+
     setLocalNotes(prev => ({ ...prev, [`${eleveId}-${matiereId}`]: rawVal }))
     const key = `${eleveId}-${matiereId}-${compo}`
     clearTimeout(saveTimers.current[key])
     saveTimers.current[key] = setTimeout(async () => {
-      const val = rawVal === '' ? null : parseFloat(rawVal)
-      if (val !== null && (val < 0 || val > bareme)) {
-        toast.error(`Note invalide (max ${bareme})`)
-        return
-      }
       await fetch('/api/notes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -124,9 +126,7 @@ export default function NotesPage() {
   // ─── impression ──────────────────────────────────────────────────────────
 
   function handlePrint() {
-    // Nombre total de colonnes matières
     const totalCols = groupes.reduce((acc, g) => acc + (g.isGroupe ? g.matieres.length + 1 : 1), 0)
-    // > 8 colonnes → 2 pages portrait, sinon 1 page paysage
     const needsMultiPage = totalCols > 8
 
     function buildTheadRow1(gs: GroupeMatiere[]) {

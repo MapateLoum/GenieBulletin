@@ -67,6 +67,20 @@ export async function POST(req: Request) {
       }
     }
 
+    // Validation du barème côté serveur — filet de sécurité
+    if (data.valeur !== null) {
+      const matiere = await prisma.matiere.findUnique({ where: { id: data.matiereId } })
+      if (!matiere) {
+        return NextResponse.json({ error: 'Matière introuvable' }, { status: 404 })
+      }
+      if (data.valeur < 0 || data.valeur > matiere.bareme) {
+        return NextResponse.json(
+          { error: `Note invalide : la valeur doit être entre 0 et ${matiere.bareme}` },
+          { status: 400 }
+        )
+      }
+    }
+
     const note = await prisma.note.upsert({
       where: {
         eleveId_matiereId_compo: {
@@ -99,6 +113,28 @@ export async function PUT(req: Request) {
       const eleve = await prisma.eleve.findUnique({ where: { id: notes[0].eleveId } })
       if (!eleve || eleve.niveau !== session.user.niveau || eleve.div !== session.user.div) {
         return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
+      }
+    }
+
+    // Validation des barèmes pour chaque note côté serveur
+    const matiereIds = [...new Set(notes.map(n => n.matiereId))]
+    const matieres = await prisma.matiere.findMany({
+      where: { id: { in: matiereIds } },
+    })
+    const matiereMap = new Map(matieres.map(m => [m.id, m]))
+
+    for (const data of notes) {
+      if (data.valeur !== null) {
+        const matiere = matiereMap.get(data.matiereId)
+        if (!matiere) {
+          return NextResponse.json({ error: `Matière ${data.matiereId} introuvable` }, { status: 404 })
+        }
+        if (data.valeur < 0 || data.valeur > matiere.bareme) {
+          return NextResponse.json(
+            { error: `Note invalide pour "${matiere.nom}" : max ${matiere.bareme}` },
+            { status: 400 }
+          )
+        }
       }
     }
 
