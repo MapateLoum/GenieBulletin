@@ -31,11 +31,9 @@ function buildLignesBulletin(matieres: Matiere[], notes: Note[], eleveId: number
       if (groupesTraites.has(m.groupeNom)) continue
       groupesTraites.add(m.groupeNom)
 
-      // Toutes les matières du groupe
       const membres = matieres.filter(x => x.groupeNom === m.groupeNom)
       const baremeTotal = membres.reduce((s, x) => s + x.bareme, 0)
 
-      // Somme des notes — null si au moins une note manque
       let noteTotal: number | null = 0
       for (const mb of membres) {
         const n = notes.find(n => n.eleveId === eleveId && n.matiereId === mb.id)
@@ -125,6 +123,8 @@ export default function BulletinsPage() {
     enabled: compo === 3 && eleves.length > 0,
   })
 
+  // --- LOGIQUE DE CALCUL CORRIGÉE ---
+  // On utilise computeElevesAvecRangs qui doit faire la somme (Points / Barème total * 10)
   const elevesAvecRangs: EleveMoyenne[] = computeElevesAvecRangs(eleves, notes, matieres)
     .sort((a, b) => {
       if (a.rang === null && b.rang === null) return 0
@@ -409,7 +409,8 @@ function BulletinContent({
         <div className="blt-box" style={{ background: '#f0faf5' }}>
           <div style={{ fontSize: '0.6rem', color: '#555', textTransform: 'uppercase', letterSpacing: '0.4px' }}>Moyenne</div>
           <div className="blt-moyenne-val" style={{ fontFamily: 'var(--font-playfair)', fontSize: '1.6rem', color: 'var(--vert)', fontWeight: 700 }}>
-            {e.moyenne !== null ? `${e.moyenne}/10` : '—'}
+            {/* CORRECTION AFFICHAGE MOYENNE */}
+            {e.moyenne !== null ? `${e.moyenne.toFixed(2)}/10` : '—'}
           </div>
           <span className={`mention ${e.mention.cls}`} style={{ fontSize: '0.65rem' }}>{e.mention.label}</span>
         </div>
@@ -445,19 +446,19 @@ function BulletinContent({
           <div className="blt-annuelle-grid">
             <div className="blt-annuelle-item">
               <div style={{ fontSize: '0.58rem', color: '#555', textTransform: 'uppercase' }}>Moy. C1</div>
-              <div style={{ fontWeight: 700, fontSize: '0.88rem', color: 'var(--vert)' }}>{bilan.moyenneCompo1 !== null ? `${bilan.moyenneCompo1}/10` : '—'}</div>
+              <div style={{ fontWeight: 700, fontSize: '0.88rem', color: 'var(--vert)' }}>{bilan.moyenneCompo1 !== null ? `${bilan.moyenneCompo1.toFixed(2)}/10` : '—'}</div>
             </div>
             <div className="blt-annuelle-item">
               <div style={{ fontSize: '0.58rem', color: '#555', textTransform: 'uppercase' }}>Moy. C2</div>
-              <div style={{ fontWeight: 700, fontSize: '0.88rem', color: 'var(--vert)' }}>{bilan.moyenneCompo2 !== null ? `${bilan.moyenneCompo2}/10` : '—'}</div>
+              <div style={{ fontWeight: 700, fontSize: '0.88rem', color: 'var(--vert)' }}>{bilan.moyenneCompo2 !== null ? `${bilan.moyenneCompo2.toFixed(2)}/10` : '—'}</div>
             </div>
             <div className="blt-annuelle-item">
               <div style={{ fontSize: '0.58rem', color: '#555', textTransform: 'uppercase' }}>Moy. C3</div>
-              <div style={{ fontWeight: 700, fontSize: '0.88rem', color: 'var(--vert)' }}>{bilan.moyenneCompo3 !== null ? `${bilan.moyenneCompo3}/10` : '—'}</div>
+              <div style={{ fontWeight: 700, fontSize: '0.88rem', color: 'var(--vert)' }}>{bilan.moyenneCompo3 !== null ? `${bilan.moyenneCompo3.toFixed(2)}/10` : '—'}</div>
             </div>
             <div className="blt-annuelle-item">
               <div style={{ fontSize: '0.58rem', color: '#555', textTransform: 'uppercase' }}>Moy. Annuelle</div>
-              <div style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--vert)', fontFamily: 'var(--font-playfair)' }}>{bilan.moyenneAnnuelle !== null ? `${bilan.moyenneAnnuelle}/10` : '—'}</div>
+              <div style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--vert)', fontFamily: 'var(--font-playfair)' }}>{bilan.moyenneAnnuelle !== null ? `${bilan.moyenneAnnuelle.toFixed(2)}/10` : '—'}</div>
             </div>
             <div className="blt-annuelle-item">
               <div style={{ fontSize: '0.58rem', color: '#555', textTransform: 'uppercase' }}>Rang annuel</div>

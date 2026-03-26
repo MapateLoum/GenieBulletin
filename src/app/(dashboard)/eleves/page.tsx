@@ -1,5 +1,6 @@
 'use client'
-import { useState } from 'react'
+import { useState, useRef } from 'react'
+import * as XLSX from 'xlsx'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { Card, SelectorBar } from '@/components/ui/Card'
@@ -90,7 +91,8 @@ export default function ElevesPage() {
   const [div, setDiv]       = useState<Division>('A')
   const [nom, setNom]       = useState('')
   const [sexe, setSexe]     = useState<'G' | 'F'>('F')
-  const [editEleve, setEditEleve] = useState<Eleve | null>(null)  // ← nouveau
+  const [editEleve, setEditEleve] = useState<Eleve | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const { data: eleves = [], isLoading } = useQuery<Eleve[]>({
     queryKey: ['eleves', niveau, div],
@@ -122,7 +124,6 @@ export default function ElevesPage() {
     onError: () => toast.error("Erreur lors de l'ajout"),
   })
 
-  // ── Mutation édition ─────────────────────────────────────────
   const updateEleve = useMutation({
     mutationFn: ({ id, nom, sexe }: { id: number; nom: string; sexe: 'G' | 'F' }) =>
       fetch(`/api/eleves/${id}`, {
@@ -145,6 +146,63 @@ export default function ElevesPage() {
       toast.success('Élève retiré(e)')
     },
   })
+
+  const deleteAll = useMutation({
+    mutationFn: () =>
+      fetch(`/api/eleves?niveau=${niveau}&div=${div}`, { method: 'DELETE' }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['eleves', niveau, div] })
+      toast.success('Classe vidée')
+    },
+    onError: () => toast.error('Erreur lors de la suppression'),
+  })
+
+  // ── Import Excel ─────────────────────────────────────────────
+  async function handleImportExcel(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    const buffer = await file.arrayBuffer()
+    const wb = XLSX.read(buffer)
+    const ws = wb.Sheets[wb.SheetNames[0]]
+    const rows = XLSX.utils.sheet_to_json<any[]>(ws, { header: 1 }) as any[][]
+
+    // Ignore ligne 1 (en-têtes), lit à partir de la ligne 2
+    // Colonnes : A=N°, B=Prénom, C=Nom, D=Sexe (M ou F dans le fichier)
+    const elevesToImport = rows.slice(1)
+      .filter(r => r[1] || r[2])
+      .map(r => {
+        const sexeRaw = String(r[3] ?? 'F').trim().toUpperCase()
+        const sexe: 'G' | 'F' = (sexeRaw === 'M' || sexeRaw === 'G') ? 'G' : 'F'
+        return {
+          nom:  `${String(r[1] ?? '').trim()} ${String(r[2] ?? '').trim()}`.trim(),
+          sexe,
+          niveau,
+          div,
+        }
+      })
+      .filter(e => e.nom)
+
+    if (!elevesToImport.length) {
+      toast.error('Aucun élève trouvé dans le fichier')
+      return
+    }
+
+    const toastId = toast.loading(`Import de ${elevesToImport.length} élèves...`)
+    try {
+      const res = await fetch('/api/eleves/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ eleves: elevesToImport }),
+      })
+      if (!res.ok) throw new Error()
+      await qc.invalidateQueries({ queryKey: ['eleves', niveau, div] })
+      toast.success(`${elevesToImport.length} élèves importés`, { id: toastId })
+    } catch {
+      toast.error("Erreur lors de l'import", { id: toastId })
+    }
+    e.target.value = ''
+  }
 
   function handleAdd() {
     if (!nom.trim()) { toast.error("Entrez le nom de l'élève"); return }
@@ -176,7 +234,6 @@ export default function ElevesPage() {
 
   return (
     <>
-      {/* Modale montée hors du Card pour éviter les z-index conflicts */}
       {editEleve && (
         <EditModal
           eleve={editEleve}
@@ -192,8 +249,46 @@ export default function ElevesPage() {
             niveau={niveau} div={div}
             onNiveauChange={setNiveau} onDivChange={setDiv}
           />
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".xlsx,.xls"
+            style={{ display: 'none' }}
+            onChange={handleImportExcel}
+          />
+          <button
+            className="btn btn-secondary btn-sm no-print"
+            onClick={() => fileInputRef.current?.click()}
+          >
+            📥 Importer Excel
+          </button>
           <button className="btn btn-secondary btn-sm no-print" onClick={handlePrintListe}>
             📄 Imprimer liste
+          </button>
+          <button
+            className="btn btn-danger btn-sm no-print"
+            disabled={eleves.length === 0 || deleteAll.isPending}
+            onClick={() => {
+              toast((t) => (
+                <span>
+                  Supprimer <strong>tous les élèves</strong> de {niveau}{div} ?{' '}
+                  <button
+                    className="btn btn-danger btn-sm"
+                    onClick={() => { deleteAll.mutate(); toast.dismiss(t.id) }}
+                  >
+                    Confirmer
+                  </button>{' '}
+                  <button
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => toast.dismiss(t.id)}
+                  >
+                    Annuler
+                  </button>
+                </span>
+              ), { duration: 6000 })
+            }}
+          >
+            🗑️ Vider la classe
           </button>
         </SelectorBar>
 
@@ -255,24 +350,28 @@ export default function ElevesPage() {
                       </td>
                       <td className="no-print">
                         <div style={{ display: 'flex', gap: '0.5rem' }}>
-                          {/* ── Bouton modifier ── */}
                           <button
                             className="btn btn-secondary btn-sm"
                             onClick={() => setEditEleve(e)}
                           >
                             ✏️ Modifier
                           </button>
-                          {/* ── Bouton supprimer ── */}
                           <button
                             className="btn btn-danger btn-sm"
                             onClick={() => {
                               toast((t) => (
                                 <span>
                                   Retirer <strong>{e.nom}</strong> ?{' '}
-                                  <button className="btn btn-danger btn-sm" onClick={() => { deleteEleve.mutate(e.id); toast.dismiss(t.id) }}>
+                                  <button
+                                    className="btn btn-danger btn-sm"
+                                    onClick={() => { deleteEleve.mutate(e.id); toast.dismiss(t.id) }}
+                                  >
                                     Confirmer
                                   </button>{' '}
-                                  <button className="btn btn-secondary btn-sm" onClick={() => toast.dismiss(t.id)}>
+                                  <button
+                                    className="btn btn-secondary btn-sm"
+                                    onClick={() => toast.dismiss(t.id)}
+                                  >
                                     Annuler
                                   </button>
                                 </span>

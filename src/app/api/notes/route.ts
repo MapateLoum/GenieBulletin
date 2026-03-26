@@ -160,3 +160,35 @@ export async function PUT(req: Request) {
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
   }
 }
+export async function DELETE(req: Request) {
+  try {
+    const session = await getServerSession(authOptions)
+    if (!session) return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
+
+    const { searchParams } = new URL(req.url)
+    const niveau = searchParams.get('niveau')
+    const div    = searchParams.get('div')
+    const compo  = Number(searchParams.get('compo'))
+
+    if (!niveau || !div || !compo)
+      return NextResponse.json({ error: 'Paramètres manquants' }, { status: 400 })
+
+    if (!peutAcceder(session, niveau, div))
+      return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
+
+    const matieres = await prisma.matiere.findMany({
+      where: { niveau, div, compo },
+      select: { id: true },
+    })
+    const matiereIds = matieres.map(m => m.id)
+
+    const { count } = await prisma.note.deleteMany({
+      where: { matiereId: { in: matiereIds }, compo },
+    })
+
+    return NextResponse.json({ success: true, deleted: count })
+  } catch (e) {
+    console.error('[delete notes]', e)
+    return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })
+  }
+}

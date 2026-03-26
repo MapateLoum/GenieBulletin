@@ -1,6 +1,7 @@
 'use client'
 // src/app/(dashboard)/notes/page.tsx
 import React, { useState, useRef } from 'react'
+import * as XLSX from 'xlsx'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { Card, SelectorBar } from '@/components/ui/Card'
@@ -10,8 +11,6 @@ import type { Niveau, Division, Eleve, Matiere, Note } from '@/types'
 const COMPO_LABELS: Record<number, string> = {
   1: '1ère Composition', 2: '2ème Composition', 3: '3ème Composition'
 }
-
-// ─── helpers ────────────────────────────────────────────────────────────────
 
 interface GroupeMatiere {
   groupeNom: string
@@ -40,8 +39,6 @@ function buildGroupes(matieres: Matiere[]): GroupeMatiere[] {
   })
 }
 
-// ─── composant ──────────────────────────────────────────────────────────────
-
 export default function NotesPage() {
   const qc = useQueryClient()
   const [niveau, setNiveau] = useState<Niveau>('CI')
@@ -49,15 +46,22 @@ export default function NotesPage() {
   const [compo, setCompo] = useState(1)
   const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
   const [localNotes, setLocalNotes] = useState<Record<string, string>>({})
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [showConfirmClear, setShowConfirmClear] = useState(false)
 
-  const { data: eleves = [] } = useQuery<Eleve[]>({
-    queryKey: ['eleves', niveau, div],
-    queryFn: async () => {
-      const r = await fetch(`/api/eleves?niveau=${niveau}&div=${div}`)
-      if (!r.ok) return []
-      return r.json()
-    },
-  })
+const { data: eleves = [] } = useQuery<Eleve[]>({
+  queryKey: ['eleves', niveau, div],
+  queryFn: async () => {
+    const r = await fetch(`/api/eleves?niveau=${niveau}&div=${div}`)
+    if (!r.ok) return []
+    const data: Eleve[] = await r.json()
+    return data.sort((a, b) => {
+      const nomA = a.nom.trim().split(/\s+/).at(-1) ?? a.nom
+      const nomB = b.nom.trim().split(/\s+/).at(-1) ?? b.nom
+      return nomA.localeCompare(nomB, 'fr', { sensitivity: 'base' })
+    })
+  },
+})
 
   const { data: matieres = [] } = useQuery<Matiere[]>({
     queryKey: ['matieres', niveau, div, compo],
@@ -103,13 +107,11 @@ export default function NotesPage() {
   const groupes = buildGroupes(matieres)
 
   function handleNoteChange(eleveId: number, matiereId: number, rawVal: string, bareme: number) {
-    // Validation immédiate — on bloque avant même de mettre à jour l'état local
     const val = rawVal === '' ? null : parseFloat(rawVal)
     if (val !== null && (isNaN(val) || val < 0 || val > bareme)) {
       toast.error(`Note invalide (max ${bareme})`)
-      return // ← on sort immédiatement, rien n'est mis à jour ni envoyé
+      return
     }
-
     setLocalNotes(prev => ({ ...prev, [`${eleveId}-${matiereId}`]: rawVal }))
     const key = `${eleveId}-${matiereId}-${compo}`
     clearTimeout(saveTimers.current[key])
@@ -123,8 +125,90 @@ export default function NotesPage() {
     }, 600)
   }
 
-  // ─── impression ──────────────────────────────────────────────────────────
+  // ── Import Excel notes ────────────────────────────────────────
+async function handleImportNotes(e: React.ChangeEvent<HTMLInputElement>) {
+  const file = e.target.files?.[0]
+  if (!file) return
 
+  const buffer = await file.arrayBuffer()
+  const wb = XLSX.read(buffer)
+  const ws = wb.Sheets[wb.SheetNames[0]]
+  const rows = XLSX.utils.sheet_to_json<any[]>(ws, { header: 1 }) as any[][]
+
+  if (rows.length < 2) { toast.error('Fichier vide'); return }
+
+  // Ligne 0 = en-têtes
+  // Col 0 = N°, Col 1 = Prénoms, Col 2 = Nom, Col 3 = Sexe, Col 4+ = matières
+// Après
+const headers = rows[0].map((h: any) =>
+  String(h ?? '').replace(/\r?\n/g, ' ').replace(/\s+/g, ' ').trim()
+)
+  const matiereHeaders = headers.slice(4) // noms des matières depuis col E
+
+  if (!matiereHeaders.length) { toast.error('Aucune matière trouvée'); return }
+
+  const dataRows = rows.slice(1)
+    .filter(r => r[1] || r[2])
+    .map(r => {
+      const notes: Record<string, number | null> = {}
+      matiereHeaders.forEach((nom, i) => {
+        if (!nom) return
+        const v = r[4 + i]
+        notes[nom] = (v !== undefined && v !== '') ? parseFloat(v) : null
+      })
+      return {
+        prenom: String(r[1] ?? '').trim(),
+        nom:    String(r[2] ?? '').trim(),
+        notes,
+      }
+    })
+    .filter(r => r.prenom || r.nom)
+
+  if (!dataRows.length) { toast.error('Aucune donnée valide'); return }
+
+  const toastId = toast.loading('Import en cours...')
+  try {
+    const res = await fetch('/api/notes/import', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ niveau, div, compo, rows: dataRows }),
+    })
+    if (!res.ok) throw new Error()
+    const result = await res.json()
+
+    await Promise.all([
+      qc.invalidateQueries({ queryKey: ['notes', niveau, div, compo] }),
+    ])
+
+    const msg = result.elevesNonTrouves?.length
+      ? `Import terminé ! (${result.elevesNonTrouves.length} élève(s) non trouvé(s) dans l'Excel)`
+      : 'Import terminé !'
+    toast.success(msg, { id: toastId })
+  } catch {
+    toast.error("Erreur lors de l'import", { id: toastId })
+  }
+  e.target.value = ''
+}
+
+  // ── Vider toutes les notes ────────────────────────────────────
+  async function confirmClearNotes() {
+    setShowConfirmClear(false)
+    const toastId = toast.loading('Suppression en cours...')
+    try {
+      const res = await fetch(
+        `/api/notes?niveau=${niveau}&div=${div}&compo=${compo}`,
+        { method: 'DELETE' }
+      )
+      if (!res.ok) throw new Error()
+      setLocalNotes({})
+      await qc.invalidateQueries({ queryKey: ['notes', niveau, div, compo] })
+      toast.success('Notes vidées !', { id: toastId })
+    } catch {
+      toast.error('Erreur lors de la suppression', { id: toastId })
+    }
+  }
+
+  // ── Impression ────────────────────────────────────────────────
   function handlePrint() {
     const totalCols = groupes.reduce((acc, g) => acc + (g.isGroupe ? g.matieres.length + 1 : 1), 0)
     const needsMultiPage = totalCols > 8
@@ -256,140 +340,216 @@ export default function NotesPage() {
     setTimeout(() => { w.focus(); w.print() }, 800)
   }
 
-  // ─── états vides ─────────────────────────────────────────────────────────
-
-  if (!eleves.length) return (
-    <Card title="Saisie des notes">
-      <SelectorBar>
-        <ClasseSelector niveau={niveau} div={div} compo={compo}
-          onNiveauChange={setNiveau} onDivChange={setDiv}
-          onCompoChange={setCompo} showCompo />
-      </SelectorBar>
-      <div className="empty">
-        <div className="empty-icon">📋</div>
-        <p>Aucun élève dans cette classe. Allez dans l'onglet Élèves.</p>
+  // ── Modal de confirmation ─────────────────────────────────────
+  const confirmModal = showConfirmClear && (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 1000,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      background: 'rgba(0,0,0,0.25)',
+    }}>
+      <div style={{
+        background: 'var(--bg, #fff)',
+        borderRadius: 14,
+        padding: '1.6rem 2rem',
+        boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
+        minWidth: 320,
+        textAlign: 'center',
+      }}>
+        <p style={{ fontSize: '1rem', marginBottom: '1.4rem', lineHeight: 1.5 }}>
+          Supprimer <strong>toutes les notes</strong> de {niveau}{div} — Compo {compo} ?
+        </p>
+        <div style={{ display: 'flex', gap: '0.8rem', justifyContent: 'center' }}>
+          <button className="btn btn-danger" onClick={confirmClearNotes}>
+            Confirmer
+          </button>
+          <button className="btn btn-secondary" onClick={() => setShowConfirmClear(false)}>
+            Annuler
+          </button>
+        </div>
       </div>
-    </Card>
+    </div>
+  )
+
+  // ── SelectorBar réutilisable ──────────────────────────────────
+  const selectorBar = (
+    <SelectorBar>
+      <ClasseSelector niveau={niveau} div={div} compo={compo}
+        onNiveauChange={setNiveau} onDivChange={setDiv}
+        onCompoChange={setCompo} showCompo />
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".xlsx,.xls"
+        style={{ display: 'none' }}
+        onChange={handleImportNotes}
+      />
+      <button
+        className="btn btn-secondary btn-sm no-print"
+        onClick={() => fileInputRef.current?.click()}
+      >
+        📥 Importer Excel
+      </button>
+      <button
+        className="btn btn-danger btn-sm no-print"
+        onClick={() => setShowConfirmClear(true)}
+      >
+        🗑️ Vider les notes
+      </button>
+    </SelectorBar>
+  )
+
+  // ── États vides ───────────────────────────────────────────────
+  if (!eleves.length) return (
+    <>
+      {confirmModal}
+      <Card title="Saisie des notes">
+        {selectorBar}
+        <div className="empty">
+          <div className="empty-icon">📋</div>
+          <p>Aucun élève dans cette classe. Allez dans l'onglet Élèves.</p>
+        </div>
+      </Card>
+    </>
   )
 
   if (!matieres.length) return (
-    <Card title="Saisie des notes">
-      <SelectorBar>
-        <ClasseSelector niveau={niveau} div={div} compo={compo}
-          onNiveauChange={setNiveau} onDivChange={setDiv}
-          onCompoChange={setCompo} showCompo />
-      </SelectorBar>
-      <div className="empty">
-        <div className="empty-icon">📚</div>
-        <p>Aucune matière pour cette composition. Allez dans Configuration.</p>
-      </div>
-    </Card>
+    <>
+      {confirmModal}
+      <Card title="Saisie des notes">
+        {selectorBar}
+        <div className="empty">
+          <div className="empty-icon">📚</div>
+          <p>Aucune matière pour cette composition. Allez dans Configuration.</p>
+        </div>
+      </Card>
+    </>
   )
 
-  // ─── rendu principal ─────────────────────────────────────────────────────
-
+  // ── Rendu principal ───────────────────────────────────────────
   return (
-    <Card title="Saisie des notes">
-      <SelectorBar>
-        <ClasseSelector niveau={niveau} div={div} compo={compo}
-          onNiveauChange={setNiveau} onDivChange={setDiv}
-          onCompoChange={setCompo} showCompo />
-        <button className="btn btn-or btn-sm no-print" onClick={handlePrint}>
-          🖨️ Imprimer les notes
-        </button>
-      </SelectorBar>
+    <>
+      {confirmModal}
+      <Card title="Saisie des notes">
+        <SelectorBar>
+          <ClasseSelector niveau={niveau} div={div} compo={compo}
+            onNiveauChange={setNiveau} onDivChange={setDiv}
+            onCompoChange={setCompo} showCompo />
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".xlsx,.xls"
+            style={{ display: 'none' }}
+            onChange={handleImportNotes}
+          />
+          <button
+            className="btn btn-secondary btn-sm no-print"
+            onClick={() => fileInputRef.current?.click()}
+          >
+            📥 Importer Excel
+          </button>
+          <button
+            className="btn btn-danger btn-sm no-print"
+            onClick={() => setShowConfirmClear(true)}
+          >
+            🗑️ Vider les notes
+          </button>
+          <button className="btn btn-or btn-sm no-print" onClick={handlePrint}>
+            🖨️ Imprimer les notes
+          </button>
+        </SelectorBar>
 
-      <div style={{ marginBottom: '0.8rem' }}>
-        <span className="badge badge-info">
-          Composition {compo} — Classe {niveau}{div}
-        </span>
-        <span style={{ fontSize: '0.8rem', color: 'var(--txt2)', marginLeft: '1rem' }}>
-          Les notes sont sauvegardées automatiquement
-        </span>
-      </div>
+        <div style={{ marginBottom: '0.8rem' }}>
+          <span className="badge badge-info">
+            Composition {compo} — Classe {niveau}{div}
+          </span>
+          <span style={{ fontSize: '0.8rem', color: 'var(--txt2)', marginLeft: '1rem' }}>
+            Les notes sont sauvegardées automatiquement
+          </span>
+        </div>
 
-      <div className="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th rowSpan={2} style={{ verticalAlign: 'middle' }}>Élève</th>
-              {groupes.map((g, gi) => {
-                if (!g.isGroupe) {
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th rowSpan={2} style={{ verticalAlign: 'middle' }}>Élève</th>
+                {groupes.map((g, gi) => {
+                  if (!g.isGroupe) {
+                    return (
+                      <th key={`g-${gi}`} rowSpan={2} style={{ verticalAlign: 'middle' }}>
+                        {g.groupeNom}<br /><small>/{g.baremeTotal}</small>
+                      </th>
+                    )
+                  }
                   return (
-                    <th key={`g-${gi}`} rowSpan={2} style={{ verticalAlign: 'middle' }}>
+                    <th
+                      key={`g-${gi}`}
+                      colSpan={g.matieres.length + 1}
+                      style={{ background: 'var(--vert-fonce, #155c30)', borderBottom: '2px solid #fff4' }}
+                    >
                       {g.groupeNom}<br /><small>/{g.baremeTotal}</small>
                     </th>
                   )
-                }
-                return (
-                  <th
-                    key={`g-${gi}`}
-                    colSpan={g.matieres.length + 1}
-                    style={{ background: 'var(--vert-fonce, #155c30)', borderBottom: '2px solid #fff4' }}
-                  >
-                    {g.groupeNom}<br /><small>/{g.baremeTotal}</small>
-                  </th>
-                )
-              })}
-            </tr>
-            <tr>
-              {groupes.map((g, gi) => {
-                if (!g.isGroupe) return null
-                return (
-                  <React.Fragment key={`g2-${gi}`}>
-                    {g.matieres.map(m => (
-                      <th key={m.id} style={{ fontWeight: 400, opacity: 0.9 }}>
-                        {m.nom}<br /><small>/{m.bareme}</small>
-                      </th>
-                    ))}
-                    <th style={{ background: 'var(--vert-fonce, #0f4a27)' }}>
-                      Total<br /><small>/{g.baremeTotal}</small>
-                    </th>
-                  </React.Fragment>
-                )
-              })}
-            </tr>
-          </thead>
-
-          <tbody>
-            {eleves.map(e => (
-              <tr key={e.id}>
-                <td><strong>{e.nom}</strong></td>
-                {groupes.map((g, gi) => (
-                  <React.Fragment key={`row-${e.id}-g${gi}`}>
-                    {g.matieres.map(m => (
-                      <td key={m.id}>
-                        <input
-                          type="number" min={0} max={m.bareme} step={0.25}
-                          value={getVal(e.id, m.id)}
-                          key={`${e.id}-${m.id}-${compo}`}
-                          style={{
-                            width: 70, padding: '4px 6px',
-                            border: '1px solid #ccc', borderRadius: 6,
-                            fontSize: '0.85rem'
-                          }}
-                          onChange={ev => handleNoteChange(e.id, m.id, ev.target.value, m.bareme)}
-                        />
-                      </td>
-                    ))}
-                    {g.isGroupe && (
-                      <td style={{
-                        fontWeight: 700,
-                        background: 'var(--vert-pale, #f0f7f2)',
-                        color: 'var(--vert, #1a6b3a)',
-                        minWidth: 60,
-                        textAlign: 'center',
-                      }}>
-                        {getGroupeTotal(e.id, g.matieres)}
-                      </td>
-                    )}
-                  </React.Fragment>
-                ))}
+                })}
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </Card>
+              <tr>
+                {groupes.map((g, gi) => {
+                  if (!g.isGroupe) return null
+                  return (
+                    <React.Fragment key={`g2-${gi}`}>
+                      {g.matieres.map(m => (
+                        <th key={m.id} style={{ fontWeight: 400, opacity: 0.9 }}>
+                          {m.nom}<br /><small>/{m.bareme}</small>
+                        </th>
+                      ))}
+                      <th style={{ background: 'var(--vert-fonce, #0f4a27)' }}>
+                        Total<br /><small>/{g.baremeTotal}</small>
+                      </th>
+                    </React.Fragment>
+                  )
+                })}
+              </tr>
+            </thead>
+
+            <tbody>
+              {eleves.map(e => (
+                <tr key={e.id}>
+                  <td><strong>{e.nom}</strong></td>
+                  {groupes.map((g, gi) => (
+                    <React.Fragment key={`row-${e.id}-g${gi}`}>
+                      {g.matieres.map(m => (
+                        <td key={m.id}>
+                          <input
+                            type="number" min={0} max={m.bareme} step={0.25}
+                            value={getVal(e.id, m.id)}
+                            key={`${e.id}-${m.id}-${compo}`}
+                            style={{
+                              width: 70, padding: '4px 6px',
+                              border: '1px solid #ccc', borderRadius: 6,
+                              fontSize: '0.85rem'
+                            }}
+                            onChange={ev => handleNoteChange(e.id, m.id, ev.target.value, m.bareme)}
+                          />
+                        </td>
+                      ))}
+                      {g.isGroupe && (
+                        <td style={{
+                          fontWeight: 700,
+                          background: 'var(--vert-pale, #f0f7f2)',
+                          color: 'var(--vert, #1a6b3a)',
+                          minWidth: 60,
+                          textAlign: 'center',
+                        }}>
+                          {getGroupeTotal(e.id, g.matieres)}
+                        </td>
+                      )}
+                    </React.Fragment>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+    </>
   )
 }
