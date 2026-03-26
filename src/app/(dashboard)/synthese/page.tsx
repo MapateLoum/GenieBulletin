@@ -39,7 +39,6 @@ type GroupeStat = {
   pctReussite: number | null
 }
 
-// Regroupe les matiereStats pour l'affichage synthèse
 function buildGroupeStats(matiereStats: MatiereStat[]): { simples: MatiereStat[]; groupes: GroupeStat[] } {
   const simples: MatiereStat[] = []
   const groupeMap = new Map<string, MatiereStat[]>()
@@ -57,7 +56,6 @@ function buildGroupeStats(matiereStats: MatiereStat[]): { simples: MatiereStat[]
   const groupes: GroupeStat[] = []
   groupeMap.forEach((membres, nom) => {
     const baremeTotal = membres.reduce((s, m) => s + m.matiere.bareme, 0)
-    // Moyenne groupe = moyenne pondérée des moyennes classe (par barème)
     const avecMoy = membres.filter(m => m.moyenneClasse !== null)
     const moyenneClasse = avecMoy.length > 0
       ? Math.round(
@@ -67,7 +65,6 @@ function buildGroupeStats(matiereStats: MatiereStat[]): { simples: MatiereStat[]
       : null
     const maxVals = membres.map(m => m.max).filter(v => v !== null) as number[]
     const minVals = membres.map(m => m.min).filter(v => v !== null) as number[]
-    // % réussite groupe = moyenne des % réussite des membres (pondérée)
     const avecPct = membres.filter((m: any) => m.pctReussite !== null)
     const pctReussite = avecPct.length
       ? Math.round(avecPct.reduce((s: number, m: any) => s + m.pctReussite!, 0) / avecPct.length)
@@ -119,6 +116,37 @@ export default function SynthesePage() {
     setTriggered(false)
   }
 
+  // ── CSS commun pour l'impression ──────────────────────────────
+  const printCSS = `
+    * { box-sizing:border-box; margin:0; padding:0; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+    body { font-family:Arial,sans-serif; padding:1.5rem; color:#1a1a1a; font-size:0.85rem; }
+    .header { display:flex; justify-content:space-between; align-items:flex-start; border-bottom:2px solid #1a6b3a; padding-bottom:1rem; margin-bottom:1.2rem; }
+    .titre { font-size:1.2rem; font-weight:700; color:#1a6b3a; text-align:center; }
+    .sous-titre { font-size:0.82rem; color:#555; text-align:center; margin-top:3px; }
+    .stats-grid { display:grid; gap:8px; margin-bottom:0.8rem; }
+    .stat-box { border-radius:8px; padding:8px; text-align:center; color:#fff; }
+    .stat-val { font-size:1.3rem; font-weight:700; }
+    .stat-lbl { font-size:0.65rem; opacity:0.9; margin-top:2px; }
+    .taux { background:#f0faf5; border:1px solid #c3e6cb; border-radius:6px; padding:8px 14px; margin-bottom:1rem; font-size:0.85rem; }
+    .taux strong { color:#1a6b3a; font-size:1rem; }
+    h3 { color:#1a6b3a; margin:1rem 0 0.6rem; font-size:0.9rem; border-left:4px solid #c8972a; padding-left:8px; page-break-after:avoid; }
+    table { width:100%; border-collapse:collapse; font-size:0.8rem; page-break-inside:auto; }
+    thead { display:table-header-group; }
+    tbody { display:table-row-group; }
+    tr { page-break-inside:avoid; }
+    th { background:#1a6b3a !important; color:#fff !important; padding:7px 8px; text-align:left; font-size:0.72rem; text-transform:uppercase; }
+    td { padding:5px 8px; border-bottom:1px solid #eee; }
+    .footer { margin-top:1.5rem; display:flex; justify-content:space-between; font-size:0.78rem; color:#777; border-top:1px solid #ddd; padding-top:0.8rem; page-break-inside:avoid; }
+    @media print {
+      @page { margin:1cm; }
+      body { padding:0; }
+      table { page-break-inside:auto; }
+      thead { display:table-header-group; }
+      tr { page-break-inside:avoid; page-break-after:auto; }
+      .footer { page-break-inside:avoid; }
+    }
+  `
+
   // ── Impression synthèse composition ──────────────────────────
   function handlePrint() {
     if (!data) return
@@ -140,70 +168,53 @@ export default function SynthesePage() {
       const rankBg = e.rang === 1 ? '#fffbe6' : e.rang === 2 ? '#f5f5f5' : e.rang === 3 ? '#fff5ec' : '#fff'
       const mentionBg = mentionColors[e.mention?.cls ?? ''] ?? 'transparent'
       return `<tr style="background:${rankBg}">
-        <td style="font-weight:700;color:#c8972a;padding:8px 10px;border-bottom:1px solid #eee">${e.rang ? `#${e.rang}` : '—'}</td>
-        <td style="padding:8px 10px;border-bottom:1px solid #eee"><strong>${e.nom}</strong></td>
-        <td style="padding:8px 10px;border-bottom:1px solid #eee;text-align:center">${e.sexe}</td>
-        <td style="padding:8px 10px;border-bottom:1px solid #eee;text-align:center"><strong>${e.moyenne !== null ? `${e.moyenne}/10` : '—'}</strong></td>
-        <td style="padding:8px 10px;border-bottom:1px solid #eee;text-align:center">
-          <span style="background:${mentionBg};padding:2px 8px;border-radius:12px;font-size:0.78rem;font-weight:700">${e.mention?.label ?? '—'}</span>
-        </td>
-        <td style="padding:8px 10px;border-bottom:1px solid #eee;text-align:center">
+        <td style="font-weight:700;color:#c8972a">${e.rang ? `#${e.rang}` : '—'}</td>
+        <td><strong>${e.nom}</strong></td>
+        <td style="text-align:center">${e.sexe}</td>
+        <td style="text-align:center"><strong>${e.moyenne !== null ? `${e.moyenne}/10` : '—'}</strong></td>
+        <td style="text-align:center"><span style="background:${mentionBg};padding:2px 8px;border-radius:10px;font-size:0.72rem;font-weight:700">${e.mention?.label ?? '—'}</span></td>
+        <td style="text-align:center">
           ${e.moyenne !== null
             ? e.aMoyenne
-              ? '<span style="background:#d4edda;color:#155724;padding:2px 8px;border-radius:12px;font-size:0.78rem;font-weight:700">✓ Oui</span>'
-              : '<span style="background:#f8d7da;color:#721c24;padding:2px 8px;border-radius:12px;font-size:0.78rem;font-weight:700">✗ Non</span>'
+              ? '<span style="background:#d4edda;color:#155724;padding:2px 8px;border-radius:10px;font-size:0.72rem;font-weight:700">✓ Oui</span>'
+              : '<span style="background:#f8d7da;color:#721c24;padding:2px 8px;border-radius:10px;font-size:0.72rem;font-weight:700">✗ Non</span>'
             : '—'}
         </td>
       </tr>`
     }).join('')
 
-    // Stats par matière/groupe pour l'impression
     const { simples, groupes } = buildGroupeStats(data.matiereStats)
 
     const groupeRowsHTML = groupes.map(g => `
-      <tr style="background:#f0faf5;font-weight:700">
-        <td style="padding:8px 10px;border-bottom:1px solid #eee"><strong>${g.nom}</strong></td>
-        <td style="padding:8px 10px;border-bottom:1px solid #eee;text-align:center">${g.moyenneClasse ?? '—'}</td>
-        <td style="padding:8px 10px;border-bottom:1px solid #eee;text-align:center">${g.max ?? '—'}</td>
-        <td style="padding:8px 10px;border-bottom:1px solid #eee;text-align:center">${g.min ?? '—'}</td>
-        <td style="padding:8px 10px;border-bottom:1px solid #eee;text-align:center;font-weight:700;color:${g.pctReussite !== null && g.pctReussite >= 50 ? '#1a6b3a' : '#c0392b'}">${g.pctReussite !== null ? g.pctReussite + '%' : '—'}</td>
+      <tr style="background:#f0faf5">
+        <td><strong>${g.nom}</strong></td>
+        <td style="text-align:center">${g.moyenneClasse ?? '—'}</td>
+        <td style="text-align:center">${g.max ?? '—'}</td>
+        <td style="text-align:center">${g.min ?? '—'}</td>
+        <td style="text-align:center;font-weight:700;color:${g.pctReussite !== null && g.pctReussite >= 50 ? '#1a6b3a' : '#c0392b'}">${g.pctReussite !== null ? g.pctReussite + '%' : '—'}</td>
       </tr>
     `).join('')
 
     const simpleRowsHTML = simples.map((ms: MatiereStat) => `
       <tr>
-        <td style="padding:8px 10px;border-bottom:1px solid #eee"><strong>${ms.matiere.nom}</strong></td>
-        <td style="padding:8px 10px;border-bottom:1px solid #eee;text-align:center">${ms.moyenneClasse ?? '—'}</td>
-        <td style="padding:8px 10px;border-bottom:1px solid #eee;text-align:center">${ms.max ?? '—'}</td>
-        <td style="padding:8px 10px;border-bottom:1px solid #eee;text-align:center">${ms.min ?? '—'}</td>
-        <td style="padding:8px 10px;border-bottom:1px solid #eee;text-align:center;font-weight:700;color:${ms.pctReussite !== null && ms.pctReussite >= 50 ? '#1a6b3a' : '#c0392b'}">${ms.pctReussite !== null ? ms.pctReussite + '%' : '—'}</td>
+        <td><strong>${ms.matiere.nom}</strong></td>
+        <td style="text-align:center">${ms.moyenneClasse ?? '—'}</td>
+        <td style="text-align:center">${ms.max ?? '—'}</td>
+        <td style="text-align:center">${ms.min ?? '—'}</td>
+        <td style="text-align:center;font-weight:700;color:${ms.pctReussite !== null && ms.pctReussite >= 50 ? '#1a6b3a' : '#c0392b'}">${ms.pctReussite !== null ? ms.pctReussite + '%' : '—'}</td>
       </tr>
     `).join('')
 
     const html = `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8">
 <title>Synthèse — Classe ${niveau}${div} — ${COMPO_LABELS[compo]}</title>
 <style>
-  * { box-sizing:border-box; margin:0; padding:0; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
-  body { font-family:Arial,sans-serif; padding:2rem; color:#1a1a1a; font-size:0.9rem; }
-  .header { display:flex; justify-content:space-between; align-items:flex-start; border-bottom:2px solid #1a6b3a; padding-bottom:1rem; margin-bottom:1.5rem; }
-  .titre { font-size:1.3rem; font-weight:700; color:#1a6b3a; text-align:center; }
-  .sous-titre { font-size:0.85rem; color:#555; text-align:center; margin-top:3px; }
-  .stats-grid { display:grid; grid-template-columns:repeat(6,1fr); gap:10px; margin-bottom:1rem; }
-  .stat-box { border-radius:10px; padding:10px; text-align:center; color:#fff; }
-  .stat-val { font-size:1.5rem; font-weight:700; }
-  .stat-lbl { font-size:0.68rem; opacity:0.9; margin-top:2px; }
-  .taux { background:#f0faf5; border:1px solid #c3e6cb; border-radius:8px; padding:10px 16px; margin-bottom:1.5rem; font-size:0.88rem; }
-  .taux strong { color:#1a6b3a; font-size:1.1rem; }
-  h3 { color:#1a6b3a; margin:1.2rem 0 0.8rem; font-size:0.95rem; border-left:4px solid #c8972a; padding-left:8px; }
-  table { width:100%; border-collapse:collapse; margin-bottom:1rem; font-size:0.85rem; }
-  th { background:#1a6b3a; color:#fff; padding:9px 10px; text-align:left; font-size:0.78rem; text-transform:uppercase; }
-  .footer { margin-top:2rem; display:flex; justify-content:space-between; font-size:0.8rem; color:#777; border-top:1px solid #ddd; padding-top:1rem; }
-  @media print { body { padding:1rem; } * { -webkit-print-color-adjust:exact; print-color-adjust:exact; } @page { margin:1cm; } }
+  ${printCSS}
+  .stats-grid { grid-template-columns:repeat(6,1fr); }
 </style></head><body>
   <div class="header">
-    <div><div style="font-weight:700;color:#1a6b3a">REPUBLIQUE DU SÉNÉGAL</div><div style="font-size:0.8rem;color:#777">Un Peuple — Un But — Une Foi</div></div>
+    <div><div style="font-weight:700;color:#1a6b3a">REPUBLIQUE DU SÉNÉGAL</div><div style="font-size:0.78rem;color:#777">Un Peuple — Un But — Une Foi</div></div>
     <div><div class="titre">SYNTHÈSE DE COMPOSITION</div><div class="sous-titre">${COMPO_LABELS[compo]} — Classe <strong>${niveau}${div}</strong></div></div>
-    <div style="text-align:right;font-size:0.82rem;color:#555"><div>Imprimé le ${new Date().toLocaleDateString('fr-FR')}</div><div>Effectif : <strong>${data.stats.effectif} élèves</strong></div></div>
+    <div style="text-align:right;font-size:0.78rem;color:#555"><div>Imprimé le ${new Date().toLocaleDateString('fr-FR')}</div><div>Effectif : <strong>${data.stats.effectif} élèves</strong></div></div>
   </div>
   <div class="stats-grid">
     <div class="stat-box" style="background:linear-gradient(135deg,#1a6b3a,#2d9a56)"><div class="stat-val">${data.stats.effectif}</div><div class="stat-lbl">Effectif total</div></div>
@@ -215,9 +226,15 @@ export default function SynthesePage() {
   </div>
   <div class="taux">Taux de réussite : <strong>${avecMoyennePct}%</strong> — ${data.stats.avecMoyenne} élève(s) sur ${data.stats.effectif} ont obtenu la moyenne</div>
   <h3>🏆 Classement des élèves</h3>
-  <table><thead><tr><th>Rang</th><th>Nom et Prénom</th><th style="text-align:center">Sexe</th><th style="text-align:center">Moy./10</th><th style="text-align:center">Mention</th><th style="text-align:center">A la moyenne</th></tr></thead><tbody>${rowsHTML}</tbody></table>
-  <h3>📚 Statistiques par matière / groupe</h3>
-  <table><thead><tr><th>Matière / Groupe</th><th style="text-align:center">Moy. classe</th><th style="text-align:center">Max</th><th style="text-align:center">Min</th><th style="text-align:center">% Réussite</th></tr></thead><tbody>${groupeRowsHTML}${simpleRowsHTML}</tbody></table>
+  <table>
+    <thead><tr><th>Rang</th><th>Nom et Prénom</th><th style="text-align:center">Sexe</th><th style="text-align:center">Moy./10</th><th style="text-align:center">Mention</th><th style="text-align:center">A la moyenne</th></tr></thead>
+    <tbody>${rowsHTML}</tbody>
+  </table>
+  <h3>📚 Statistiques par matière</h3>
+  <table>
+    <thead><tr><th>Matière</th><th style="text-align:center">Moy. classe</th><th style="text-align:center">Max</th><th style="text-align:center">Min</th><th style="text-align:center">% Réussite</th></tr></thead>
+    <tbody>${groupeRowsHTML}${simpleRowsHTML}</tbody>
+  </table>
   <div class="footer"><div>Signature du Directeur : _______________________</div><div>Signature du Maître/Maîtresse : _______________________</div></div>
 </body></html>`
 
@@ -242,15 +259,15 @@ export default function SynthesePage() {
       const decisionBg = e.decision?.includes('Admis') ? '#d4edda' : e.decision === 'Redouble' ? '#f8d7da' : '#fff'
       const decisionColor = e.decision?.includes('Admis') ? '#155724' : e.decision === 'Redouble' ? '#721c24' : '#333'
       return `<tr>
-        <td style="font-weight:700;color:#c8972a;padding:8px 10px;border-bottom:1px solid #eee">${e.rangAnnuel ? `#${e.rangAnnuel}` : '—'}</td>
-        <td style="padding:8px 10px;border-bottom:1px solid #eee"><strong>${e.nom}</strong></td>
-        <td style="padding:8px 10px;border-bottom:1px solid #eee;text-align:center">${e.sexe}</td>
-        <td style="padding:8px 10px;border-bottom:1px solid #eee;text-align:center">${e.moyenneCompo1 !== null ? `${e.moyenneCompo1}/10` : '—'}</td>
-        <td style="padding:8px 10px;border-bottom:1px solid #eee;text-align:center">${e.moyenneCompo2 !== null ? `${e.moyenneCompo2}/10` : '—'}</td>
-        <td style="padding:8px 10px;border-bottom:1px solid #eee;text-align:center">${e.moyenneCompo3 !== null ? `${e.moyenneCompo3}/10` : '—'}</td>
-        <td style="padding:8px 10px;border-bottom:1px solid #eee;text-align:center"><strong>${e.moyenneAnnuelle !== null ? `${e.moyenneAnnuelle}/10` : '—'}</strong></td>
-        <td style="padding:8px 10px;border-bottom:1px solid #eee;text-align:center">
-          <span style="background:${decisionBg};color:${decisionColor};padding:2px 8px;border-radius:12px;font-size:0.78rem;font-weight:700">
+        <td style="font-weight:700;color:#c8972a">${e.rangAnnuel ? `#${e.rangAnnuel}` : '—'}</td>
+        <td><strong>${e.nom}</strong></td>
+        <td style="text-align:center">${e.sexe}</td>
+        <td style="text-align:center">${e.moyenneCompo1 !== null ? `${e.moyenneCompo1}/10` : '—'}</td>
+        <td style="text-align:center">${e.moyenneCompo2 !== null ? `${e.moyenneCompo2}/10` : '—'}</td>
+        <td style="text-align:center">${e.moyenneCompo3 !== null ? `${e.moyenneCompo3}/10` : '—'}</td>
+        <td style="text-align:center"><strong>${e.moyenneAnnuelle !== null ? `${e.moyenneAnnuelle}/10` : '—'}</strong></td>
+        <td style="text-align:center">
+          <span style="background:${decisionBg};color:${decisionColor};padding:2px 8px;border-radius:10px;font-size:0.72rem;font-weight:700">
             ${e.decision?.includes('Admis') ? '✅' : '🔄'} ${e.decision ?? '—'}
           </span>
         </td>
@@ -260,27 +277,14 @@ export default function SynthesePage() {
     const html = `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8">
 <title>Bilan Annuel — Classe ${niveau}${div}</title>
 <style>
-  * { box-sizing:border-box; margin:0; padding:0; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
-  body { font-family:Arial,sans-serif; padding:2rem; color:#1a1a1a; font-size:0.9rem; }
-  .header { display:flex; justify-content:space-between; align-items:flex-start; border-bottom:2px solid #1a6b3a; padding-bottom:1rem; margin-bottom:1.5rem; }
-  .titre { font-size:1.3rem; font-weight:700; color:#1a6b3a; text-align:center; }
-  .sous-titre { font-size:0.85rem; color:#555; text-align:center; margin-top:3px; }
-  .stats-grid { display:grid; grid-template-columns:repeat(5,1fr); gap:10px; margin-bottom:1.5rem; }
-  .stat-box { border-radius:10px; padding:10px; text-align:center; color:#fff; }
-  .stat-val { font-size:1.5rem; font-weight:700; }
-  .stat-lbl { font-size:0.68rem; opacity:0.9; margin-top:2px; }
-  .taux { background:#f0faf5; border:1px solid #c3e6cb; border-radius:8px; padding:10px 16px; margin-bottom:1.5rem; font-size:0.88rem; }
-  .taux strong { color:#1a6b3a; font-size:1.1rem; }
-  h3 { color:#1a6b3a; margin:1.2rem 0 0.8rem; font-size:0.95rem; border-left:4px solid #c8972a; padding-left:8px; }
-  table { width:100%; border-collapse:collapse; margin-bottom:1rem; font-size:0.85rem; }
-  th { background:#1a6b3a; color:#fff; padding:9px 10px; text-align:left; font-size:0.78rem; text-transform:uppercase; }
-  .footer { margin-top:2rem; display:flex; justify-content:space-between; font-size:0.8rem; color:#777; border-top:1px solid #ddd; padding-top:1rem; }
-  @media print { body { padding:1rem; } * { -webkit-print-color-adjust:exact; print-color-adjust:exact; } @page { size:A4 landscape; margin:1cm; } }
+  ${printCSS}
+  .stats-grid { grid-template-columns:repeat(5,1fr); }
+  @media print { @page { size:A4 landscape; margin:1cm; } }
 </style></head><body>
   <div class="header">
-    <div><div style="font-weight:700;color:#1a6b3a">REPUBLIQUE DU SÉNÉGAL</div><div style="font-size:0.8rem;color:#777">Un Peuple — Un But — Une Foi</div></div>
+    <div><div style="font-weight:700;color:#1a6b3a">REPUBLIQUE DU SÉNÉGAL</div><div style="font-size:0.78rem;color:#777">Un Peuple — Un But — Une Foi</div></div>
     <div><div class="titre">BILAN ANNUEL</div><div class="sous-titre">Année complète — Classe <strong>${niveau}${div}</strong></div></div>
-    <div style="text-align:right;font-size:0.82rem;color:#555"><div>Imprimé le ${new Date().toLocaleDateString('fr-FR')}</div><div>Effectif : <strong>${bilanAnnuel.length} élèves</strong></div></div>
+    <div style="text-align:right;font-size:0.78rem;color:#555"><div>Imprimé le ${new Date().toLocaleDateString('fr-FR')}</div><div>Effectif : <strong>${bilanAnnuel.length} élèves</strong></div></div>
   </div>
   <div class="stats-grid">
     <div class="stat-box" style="background:linear-gradient(135deg,#1a6b3a,#2d9a56)"><div class="stat-val">${bilanAnnuel.length}</div><div class="stat-lbl">Effectif total</div></div>
@@ -291,11 +295,14 @@ export default function SynthesePage() {
   </div>
   <div class="taux">Taux de réussite : <strong>${tauxReussite}%</strong> — ${admis} élève(s) admis sur ${bilanAnnuel.length}</div>
   <h3>🏆 Classement annuel des élèves</h3>
-  <table><thead><tr>
-    <th>Rang</th><th>Nom et Prénom</th><th style="text-align:center">Sexe</th>
-    <th style="text-align:center">Moy. C1</th><th style="text-align:center">Moy. C2</th><th style="text-align:center">Moy. C3</th>
-    <th style="text-align:center">Moy. Annuelle</th><th style="text-align:center">Décision</th>
-  </tr></thead><tbody>${rowsHTML}</tbody></table>
+  <table>
+    <thead><tr>
+      <th>Rang</th><th>Nom et Prénom</th><th style="text-align:center">Sexe</th>
+      <th style="text-align:center">Moy. C1</th><th style="text-align:center">Moy. C2</th><th style="text-align:center">Moy. C3</th>
+      <th style="text-align:center">Moy. Annuelle</th><th style="text-align:center">Décision</th>
+    </tr></thead>
+    <tbody>${rowsHTML}</tbody>
+  </table>
   <div class="footer"><div>Signature du Directeur : _______________________</div><div>Signature du Maître/Maîtresse : _______________________</div></div>
 </body></html>`
 
@@ -318,7 +325,6 @@ export default function SynthesePage() {
     ? Math.round((avecMoyAnnuel.reduce((s, e) => s + (e.moyenneAnnuelle ?? 0), 0) / avecMoyAnnuel.length) * 100) / 100
     : null
 
-  // Groupes pour l'affichage dans l'interface
   const { simples: simplesUI, groupes: groupesUI } = data?.matiereStats
     ? buildGroupeStats(data.matiereStats)
     : { simples: [], groupes: [] }
@@ -332,7 +338,6 @@ export default function SynthesePage() {
           onCompoChange={setCompo} showCompo={mode === 'compo'}
         />
 
-        {/* Toggle mode */}
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           <button
             className={`btn btn-sm ${mode === 'compo' ? 'btn-primary' : 'btn-secondary'}`}
@@ -407,31 +412,29 @@ export default function SynthesePage() {
             </table>
           </div>
 
-          <h3 style={{ fontFamily: 'var(--font-playfair)', color: 'var(--vert)', marginBottom: '1rem' }}>📚 Statistiques par matière / groupe</h3>
+          <h3 style={{ fontFamily: 'var(--font-playfair)', color: 'var(--vert)', marginBottom: '1rem' }}>📚 Statistiques par matière</h3>
           <div className="table-wrap">
             <table>
               <thead>
-                <tr><th>Matière / Groupe</th><th>Moy. classe</th><th>Max</th><th>Min</th><th>% Réussite</th></tr>
+                <tr><th>Matière</th><th>Moy. classe</th><th>Max</th><th>Min</th><th>% Réussite</th></tr>
               </thead>
               <tbody>
-                {/* Groupes d'abord */}
                 {groupesUI.map((g) => (
                   <tr key={`groupe-${g.nom}`} style={{ background: '#f0faf5' }}>
                     <td><strong>{g.nom}</strong> <span style={{ fontSize: '0.72rem', color: 'var(--vert)', fontWeight: 400 }}>(groupe)</span></td>
                     <td>{g.moyenneClasse ?? '—'}</td>
                     <td>{g.max ?? '—'}</td>
                     <td>{g.min ?? '—'}</td>
-                    <td>{g.pctReussite !== null && g.pctReussite !== undefined ? <span style={{ fontWeight: 700, color: g.pctReussite >= 50 ? 'var(--vert)' : '#c0392b' }}>{g.pctReussite}%</span> : '—'}</td>
+                    <td>{g.pctReussite !== null ? <span style={{ fontWeight: 700, color: g.pctReussite >= 50 ? 'var(--vert)' : '#c0392b' }}>{g.pctReussite}%</span> : '—'}</td>
                   </tr>
                 ))}
-                {/* Matières simples */}
                 {simplesUI.map((ms: MatiereStat) => (
                   <tr key={ms.matiere.id}>
                     <td><strong>{ms.matiere.nom}</strong></td>
                     <td>{ms.moyenneClasse ?? '—'}</td>
                     <td>{ms.max ?? '—'}</td>
                     <td>{ms.min ?? '—'}</td>
-                    <td>{ms.pctReussite !== null && ms.pctReussite !== undefined ? <span style={{ fontWeight: 700, color: ms.pctReussite >= 50 ? 'var(--vert)' : '#c0392b' }}>{ms.pctReussite}%</span> : '—'}</td>
+                    <td>{ms.pctReussite !== null ? <span style={{ fontWeight: 700, color: ms.pctReussite >= 50 ? 'var(--vert)' : '#c0392b' }}>{ms.pctReussite}%</span> : '—'}</td>
                   </tr>
                 ))}
               </tbody>

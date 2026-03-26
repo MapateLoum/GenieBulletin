@@ -6,21 +6,22 @@ export function getMoyenne(
   notes: Note[],
   matieres: Matiere[]
 ): number | null {
-  let totalPts = 0
-  let totalCoef = 0
+  let totalPts    = 0
+  let totalBareme = 0
 
   for (const m of matieres) {
     const note = notes.find(
       (n) => n.eleveId === eleveId && n.matiereId === m.id
     )
     if (note?.valeur !== undefined && note.valeur !== null) {
-      totalPts += (note.valeur / m.bareme) * 10 * m.coef
-      totalCoef += m.coef
+      totalPts    += note.valeur
+      totalBareme += m.bareme
     }
   }
 
-  if (totalCoef === 0) return null
-  return Math.round((totalPts / totalCoef) * 100) / 100
+  if (totalBareme === 0) return null
+  // Moyenne = (somme des notes / somme des barèmes) × 10
+  return Math.round((totalPts / totalBareme) * 10 * 100) / 100
 }
 
 export function getMention(moy: number | null): Mention {

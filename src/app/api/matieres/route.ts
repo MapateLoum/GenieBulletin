@@ -6,10 +6,8 @@ import { prisma } from '@/lib/prisma'
 import { z } from 'zod'
 
 const MatiereSchema = z.object({
-  nom:       z.string().min(1).max(100),
-  coef:      z.number().int().min(1).max(10),
-  bareme:    z.number().int(),
-  groupeNom: z.string().max(100).nullable().optional(),
+  nom:    z.string().min(1).max(100),
+  bareme: z.number().int().min(1),
 })
 
 export async function GET(req: Request) {
@@ -66,7 +64,7 @@ export async function POST(req: Request) {
       }
     }
 
-    // ── Vérification unicité : même nom (insensible à la casse) + même classe + même compo ──
+    // Vérification unicité
     const existing = await prisma.matiere.findFirst({
       where: {
         nom:    { equals: data.nom.trim(), mode: 'insensitive' },
@@ -85,10 +83,8 @@ export async function POST(req: Request) {
     const count = await prisma.matiere.count({ where: { niveau, div, compo } })
     const matiere = await prisma.matiere.create({
       data: {
-        nom:       data.nom.trim(),
-        coef:      data.coef,
-        bareme:    data.bareme,
-        groupeNom: data.groupeNom ?? null,
+        nom:    data.nom.trim(),
+        bareme: data.bareme,
         niveau,
         div,
         compo,

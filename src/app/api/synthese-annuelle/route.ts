@@ -28,7 +28,6 @@ export async function GET(req: Request) {
       orderBy: { nom: 'asc' },
     })
 
-    // Chaque composition a ses propres matières
     const [matieres1, matieres2, matieres3, notes1, notes2, notes3] = await Promise.all([
       prisma.matiere.findMany({ where: { niveau, div, compo: 1 } }),
       prisma.matiere.findMany({ where: { niveau, div, compo: 2 } }),
@@ -38,22 +37,23 @@ export async function GET(req: Request) {
       prisma.note.findMany({ where: { compo: 3, eleve: { niveau, div } } }),
     ])
 
+    // Moyenne = (somme des notes / somme des barèmes) × 10
     function getMoyenneCompo(
       eleveId: number,
       notes: typeof notes1,
       matieres: typeof matieres1
     ): number | null {
-      let totalPts  = 0
-      let totalCoef = 0
+      let totalPts    = 0
+      let totalBareme = 0
       for (const m of matieres) {
         const note = notes.find(n => n.eleveId === eleveId && n.matiereId === m.id)
         if (note?.valeur !== undefined && note.valeur !== null) {
-          totalPts  += (note.valeur / m.bareme) * 10 * m.coef
-          totalCoef += m.coef
+          totalPts    += note.valeur
+          totalBareme += m.bareme
         }
       }
-      if (totalCoef === 0) return null
-      return Math.round((totalPts / totalCoef) * 100) / 100
+      if (totalBareme === 0) return null
+      return Math.round((totalPts / totalBareme) * 10 * 100) / 100
     }
 
     const elevesAvecMoyAnnuelle = eleves.map(e => {
@@ -72,7 +72,16 @@ export async function GET(req: Request) {
           ? 'Admis(e) en classe supérieure'
           : 'Redouble'
 
-      return { eleveId: e.id, nom: e.nom, sexe: e.sexe, moyenneCompo1: moy1, moyenneCompo2: moy2, moyenneCompo3: moy3, moyenneAnnuelle, decision }
+      return {
+        eleveId: e.id,
+        nom: e.nom,
+        sexe: e.sexe,
+        moyenneCompo1: moy1,
+        moyenneCompo2: moy2,
+        moyenneCompo3: moy3,
+        moyenneAnnuelle,
+        decision,
+      }
     })
 
     // Rang annuel avec ex-æquo

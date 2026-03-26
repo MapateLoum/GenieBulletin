@@ -35,15 +35,13 @@ model Config {
 }
 
 model Matiere {
-  id        Int     @id @default(autoincrement())
-  nom       String
-  coef      Int     @default(1)
-  bareme    Int     @default(20)
-  ordre     Int     @default(0)
-  niveau    String
-  div       String
-  compo     Int     @default(1)
-  groupeNom String?
+  id     Int    @id @default(autoincrement())
+  nom    String
+  bareme Int    @default(20)
+  ordre  Int    @default(0)
+  niveau String
+  div    String
+  compo  Int    @default(1)
 
   notes Note[]
 
