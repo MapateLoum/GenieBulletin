@@ -13,21 +13,7 @@ declare module 'next-auth/jwt' {
 }
 
 export const authOptions: NextAuthOptions = {
-  session: { strategy: 'jwt', maxAge: 8 * 60 * 60 }, // expire après 8h
-
-  // // Cookie de session = supprimé à la fermeture du navigateur
-  // cookies: {
-  //   sessionToken: {
-  //     name: `next-auth.session-token`,
-  //     options: {
-  //       httpOnly: true,
-  //       sameSite: 'lax' as const,
-  //       path: '/',
-  //       secure: process.env.NODE_ENV === 'production',
-  //       // Pas de "expires" = cookie de session = supprimé à la fermeture du navigateur
-  //     },
-  //   },
-  // },
+  session: { strategy: 'jwt', maxAge: 2 * 60 * 60 }, // expire après 2h
 
   pages: { signIn: '/login' },
 

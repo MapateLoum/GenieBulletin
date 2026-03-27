@@ -6,9 +6,67 @@ import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
 
 type Step =
-  | 'login'         // formulaire de connexion
-  | 'forgot-email'  // saisie email pour reset
-  | 'forgot-code'   // saisie code + nouveau mot de passe
+  | 'login'
+  | 'forgot-email'
+  | 'forgot-code'
+
+// ── Petit composant champ mot de passe avec œil ───────────────
+function PasswordInput({
+  value, onChange, onKeyDown, placeholder = '••••••••', autoFocus = false, autoComplete,
+}: {
+  value: string
+  onChange: (v: string) => void
+  onKeyDown?: (e: React.KeyboardEvent) => void
+  placeholder?: string
+  autoFocus?: boolean
+  autoComplete?: string
+}) {
+  const [show, setShow] = useState(false)
+  return (
+    <div style={{ position: 'relative' }}>
+      <input
+        type={show ? 'text' : 'password'}
+        placeholder={placeholder}
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        onKeyDown={onKeyDown}
+        autoFocus={autoFocus}
+        autoComplete={autoComplete}
+        style={{ paddingRight: '2.5rem', width: '100%' }}
+      />
+      <button
+        type="button"
+        onClick={() => setShow(s => !s)}
+        style={{
+          position: 'absolute', right: '0.75rem', top: '50%',
+          transform: 'translateY(-50%)',
+          background: 'none', border: 'none', cursor: 'pointer',
+          color: 'var(--txt2)', fontSize: '1.1rem', padding: 0,
+          display: 'flex', alignItems: 'center',
+        }}
+        tabIndex={-1}
+        aria-label={show ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+      >
+        {show ? (
+          // Œil barré
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
+            <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
+            <line x1="1" y1="1" x2="23" y2="23"/>
+          </svg>
+        ) : (
+          // Œil ouvert
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+            <circle cx="12" cy="12" r="3"/>
+          </svg>
+        )}
+      </button>
+    </div>
+  )
+}
 
 export default function LoginPage() {
   const router = useRouter()
@@ -20,12 +78,12 @@ export default function LoginPage() {
   const [loading, setLoading]   = useState(false)
 
   // Forgot password
-  const [resetEmail, setResetEmail]   = useState('')
-  const [resetCode, setResetCode]     = useState('')
-  const [nouveauMdp, setNouveauMdp]   = useState('')
-  const [confirmMdp, setConfirmMdp]   = useState('')
-  const [sending, setSending]         = useState(false)
-  const [resetting, setResetting]     = useState(false)
+  const [resetEmail, setResetEmail] = useState('')
+  const [resetCode, setResetCode]   = useState('')
+  const [nouveauMdp, setNouveauMdp] = useState('')
+  const [confirmMdp, setConfirmMdp] = useState('')
+  const [sending, setSending]       = useState(false)
+  const [resetting, setResetting]   = useState(false)
 
   async function handleLogin() {
     if (!email || !password) { toast.error('Remplissez tous les champs'); return }
@@ -50,7 +108,6 @@ export default function LoginPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: resetEmail }),
       })
-      // Toujours afficher succès (sécurité)
       toast.success('Si cet email existe, un code a été envoyé 📧')
       setStep('forgot-code')
     } catch {
@@ -61,8 +118,8 @@ export default function LoginPage() {
   }
 
   async function handleResetPassword() {
-    if (!resetCode)             { toast.error('Entrez le code reçu par email'); return }
-    if (nouveauMdp.length < 6)  { toast.error('Le mot de passe doit faire au moins 6 caractères'); return }
+    if (!resetCode)                { toast.error('Entrez le code reçu par email'); return }
+    if (nouveauMdp.length < 6)     { toast.error('Le mot de passe doit faire au moins 6 caractères'); return }
     if (nouveauMdp !== confirmMdp) { toast.error('Les mots de passe ne correspondent pas'); return }
 
     setResetting(true)
@@ -134,11 +191,9 @@ export default function LoginPage() {
             </div>
             <div>
               <label>Mot de passe</label>
-              <input
-                type="password"
-                placeholder="••••••••"
+              <PasswordInput
                 value={password}
-                onChange={e => setPassword(e.target.value)}
+                onChange={setPassword}
                 onKeyDown={e => e.key === 'Enter' && handleLogin()}
                 autoComplete="current-password"
               />
@@ -223,20 +278,17 @@ export default function LoginPage() {
             </div>
             <div>
               <label>Nouveau mot de passe</label>
-              <input
-                type="password"
-                placeholder="6 caractères minimum"
+              <PasswordInput
                 value={nouveauMdp}
-                onChange={e => setNouveauMdp(e.target.value)}
+                onChange={setNouveauMdp}
+                placeholder="6 caractères minimum"
               />
             </div>
             <div>
               <label>Confirmer le mot de passe</label>
-              <input
-                type="password"
-                placeholder="••••••••"
+              <PasswordInput
                 value={confirmMdp}
-                onChange={e => setConfirmMdp(e.target.value)}
+                onChange={setConfirmMdp}
                 onKeyDown={e => e.key === 'Enter' && handleResetPassword()}
               />
             </div>
