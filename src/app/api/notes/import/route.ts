@@ -1,3 +1,4 @@
+// src/app/api/notes/import/route.ts
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
@@ -11,10 +12,10 @@ const RowSchema = z.object({
 })
 
 const ImportBodySchema = z.object({
-  niveau:      z.enum(['CI', 'CP', 'CE1', 'CE2', 'CM1', 'CM2']),
-  div:         z.enum(['A', 'B']),
-  compo:       z.number().int().min(1).max(3),
-  rows:        z.array(RowSchema),
+  niveau: z.enum(['6ème', '5ème', '4ème', '3ème', '2nde', '1ère', 'Tle']),
+  div:    z.enum(['A', 'B', 'C', 'D']),
+  compo:  z.number().int().min(1).max(3),
+  rows:   z.array(RowSchema),
 })
 
 function peutAcceder(session: any, niveau: string, div: string): boolean {
@@ -38,21 +39,15 @@ export async function POST(req: Request) {
     if (!peutAcceder(session, niveau, div))
       return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
 
-    // ── 1. Charger les élèves du site ────────────────────────────
-    const elevesDB = await prisma.eleve.findMany({ where: { niveau, div } })
-
-    // ── 2. Charger les matières du site pour cette compo ─────────
+    const elevesDB   = await prisma.eleve.findMany({ where: { niveau, div } })
     const matieresDB = await prisma.matiere.findMany({ where: { niveau, div, compo } })
 
-    // ── 3. Construire un index des lignes Excel par nom complet ───
-    // L'Excel a Prénom en col B, Nom en col C → on reconstitue "Prénom Nom"
     const excelMap = new Map<string, Record<string, number | null>>()
     for (const row of rows) {
       const fullName = normalize(`${row.prenom} ${row.nom}`)
       excelMap.set(fullName, row.notes)
     }
 
-    // ── 4. Pour chaque élève du site, chercher dans l'Excel ───────
     let count = 0
     const notFound: string[] = []
 
@@ -65,11 +60,8 @@ export async function POST(req: Request) {
         continue
       }
 
-      // Pour chaque matière du site, chercher la colonne dans l'Excel
       for (const matiere of matieresDB) {
         const keyMatiere = normalize(matiere.nom)
-
-        // Chercher la note dans l'Excel (clé normalisée)
         const noteEntry = Object.entries(excelNotes).find(
           ([k]) => normalize(k) === keyMatiere
         )
@@ -77,6 +69,9 @@ export async function POST(req: Request) {
 
         const valeur = noteEntry[1]
         if (valeur === null || valeur === undefined) continue
+
+        // Validation barème (fixé à 20)
+        if (valeur < 0 || valeur > 20) continue
 
         await prisma.note.upsert({
           where: {

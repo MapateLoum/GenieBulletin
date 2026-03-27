@@ -37,23 +37,35 @@ export async function GET(req: Request) {
       prisma.note.findMany({ where: { compo: 3, eleve: { niveau, div } } }),
     ])
 
-    // Moyenne = (somme des notes / somme des barèmes) × 10
+    /**
+     * Moyenne lycée avec coefficients.
+     * Moy matière = somme des notes / nombre de notes  (sur 20)
+     * Moy générale = Σ(moy_mat × coef) / Σ(coef)     (sur 20)
+     */
     function getMoyenneCompo(
       eleveId: number,
       notes: typeof notes1,
       matieres: typeof matieres1
     ): number | null {
-      let totalPts    = 0
-      let totalBareme = 0
+      let totalPonderes = 0
+      let totalCoefs    = 0
+
       for (const m of matieres) {
-        const note = notes.find(n => n.eleveId === eleveId && n.matiereId === m.id)
-        if (note?.valeur !== undefined && note.valeur !== null) {
-          totalPts    += note.valeur
-          totalBareme += m.bareme
-        }
+        const notesMat = notes.filter(
+          (n) => n.eleveId === eleveId && n.matiereId === m.id && n.valeur !== null
+        )
+        if (notesMat.length === 0) continue
+
+        const somme  = notesMat.reduce((s, n) => s + (n.valeur as number), 0)
+        const moyMat = somme / notesMat.length   // sur 20
+
+        const coef = (m as any).coef ?? 1
+        totalPonderes += moyMat * coef
+        totalCoefs    += coef
       }
-      if (totalBareme === 0) return null
-      return Math.round((totalPts / totalBareme) * 10 * 100) / 100
+
+      if (totalCoefs === 0) return null
+      return Math.round((totalPonderes / totalCoefs) * 100) / 100
     }
 
     const elevesAvecMoyAnnuelle = eleves.map(e => {
@@ -66,9 +78,10 @@ export async function GET(req: Request) {
         ? Math.round((moyennes.reduce((s, m) => s + m, 0) / moyennes.length) * 100) / 100
         : null
 
+      // Passage : 10/20
       const decision = moyenneAnnuelle === null
         ? null
-        : moyenneAnnuelle >= 5
+        : moyenneAnnuelle >= 10
           ? 'Admis(e) en classe supérieure'
           : 'Redouble'
 

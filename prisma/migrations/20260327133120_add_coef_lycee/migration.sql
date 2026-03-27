@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "matieres" ADD COLUMN     "coef" DOUBLE PRECISION NOT NULL DEFAULT 1;

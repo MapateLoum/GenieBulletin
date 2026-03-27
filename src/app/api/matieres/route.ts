@@ -7,7 +7,8 @@ import { z } from 'zod'
 
 const MatiereSchema = z.object({
   nom:    z.string().min(1).max(100),
-  bareme: z.number().int().min(1),
+  bareme: z.number().int().min(1).default(20),
+  coef:   z.number().int().min(1).default(1),
 })
 
 export async function GET(req: Request) {
@@ -84,7 +85,8 @@ export async function POST(req: Request) {
     const matiere = await prisma.matiere.create({
       data: {
         nom:    data.nom.trim(),
-        bareme: data.bareme,
+        bareme: 20,           // fixé à 20 pour le lycée
+        coef:   data.coef,
         niveau,
         div,
         compo,

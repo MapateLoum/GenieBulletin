@@ -38,6 +38,7 @@ export async function GET(req: Request) {
       ? Math.round((avecNote.reduce((s, e) => s + (e.moyenne ?? 0), 0) / avecNote.length) * 100) / 100
       : null
 
+    // Statistiques par matière (note sur 20, seuil réussite = 10/20)
     const matiereStats = matieres.map((m) => {
       const notesMat = notes
         .filter((n) => n.matiereId === m.id && n.valeur !== null)
@@ -47,8 +48,8 @@ export async function GET(req: Request) {
         ? Math.round((notesMat.reduce((s, n) => s + n, 0) / notesMat.length) * 100) / 100
         : null
 
-      // % réussite : élèves ayant ≥ 5/10 dans cette matière (note ramenée sur 10)
-      const avecReussite = notesMat.filter((v) => (v / m.bareme) * 10 >= 5).length
+      // Réussite : note >= 10/20
+      const avecReussite = notesMat.filter((v) => v >= 10).length
       const pctReussite = notesMat.length
         ? Math.round((avecReussite / notesMat.length) * 100)
         : null

@@ -8,8 +8,8 @@ import { z } from 'zod'
 const EleveImportSchema = z.object({
   nom:    z.string().min(1).max(150),
   sexe:   z.enum(['G', 'F']),
-  niveau: z.enum(['CI', 'CP', 'CE1', 'CE2', 'CM1', 'CM2']),
-  div:    z.enum(['A', 'B']),
+  niveau: z.enum(['6ème', '5ème', '4ème', '3ème', '2nde', '1ère', 'Tle']),
+  div:    z.enum(['A', 'B', 'C', 'D']),
 })
 
 const ImportBodySchema = z.object({
@@ -29,8 +29,6 @@ export async function POST(req: Request) {
     const body = await req.json()
     const { eleves } = ImportBodySchema.parse(body)
 
-    // Tous les élèves doivent appartenir à la même classe,
-    // et l'utilisateur doit y avoir accès
     const niveaux = [...new Set(eleves.map(e => e.niveau))]
     const divs    = [...new Set(eleves.map(e => e.div))]
 

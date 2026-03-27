@@ -83,7 +83,7 @@ function buildGroupeStats(matiereStats: MatiereStat[]): { simples: MatiereStat[]
 }
 
 export default function SynthesePage() {
-  const [niveau, setNiveau] = useState<Niveau>('CI')
+  const [niveau, setNiveau] = useState<Niveau>('6ème')
   const [div, setDiv] = useState<Division>('A')
   const [compo, setCompo] = useState(1)
   const [mode, setMode] = useState<'compo' | 'annuelle'>('compo')
@@ -171,7 +171,7 @@ export default function SynthesePage() {
         <td style="font-weight:700;color:#c8972a">${e.rang ? `#${e.rang}` : '—'}</td>
         <td><strong>${e.nom}</strong></td>
         <td style="text-align:center">${e.sexe}</td>
-        <td style="text-align:center"><strong>${e.moyenne !== null ? `${e.moyenne}/10` : '—'}</strong></td>
+        <td style="text-align:center"><strong>${e.moyenne !== null ? `${e.moyenne}/20` : '—'}</strong></td>
         <td style="text-align:center"><span style="background:${mentionBg};padding:2px 8px;border-radius:10px;font-size:0.72rem;font-weight:700">${e.mention?.label ?? '—'}</span></td>
         <td style="text-align:center">
           ${e.moyenne !== null
@@ -198,6 +198,7 @@ export default function SynthesePage() {
     const simpleRowsHTML = simples.map((ms: MatiereStat) => `
       <tr>
         <td><strong>${ms.matiere.nom}</strong></td>
+        <td style="text-align:center;font-size:0.7rem;color:#777">coef ${ms.matiere.coef}</td>
         <td style="text-align:center">${ms.moyenneClasse ?? '—'}</td>
         <td style="text-align:center">${ms.max ?? '—'}</td>
         <td style="text-align:center">${ms.min ?? '—'}</td>
@@ -218,24 +219,24 @@ export default function SynthesePage() {
   </div>
   <div class="stats-grid">
     <div class="stat-box" style="background:linear-gradient(135deg,#1a6b3a,#2d9a56)"><div class="stat-val">${data.stats.effectif}</div><div class="stat-lbl">Effectif total</div></div>
-    <div class="stat-box" style="background:linear-gradient(135deg,#c8972a,#e0a830)"><div class="stat-val">${data.stats.moyenneClasse !== null ? `${data.stats.moyenneClasse}/10` : '—'}</div><div class="stat-lbl">Moyenne de classe</div></div>
+    <div class="stat-box" style="background:linear-gradient(135deg,#c8972a,#e0a830)"><div class="stat-val">${data.stats.moyenneClasse !== null ? `${data.stats.moyenneClasse}/20` : '—'}</div><div class="stat-lbl">Moyenne de classe</div></div>
     <div class="stat-box" style="background:linear-gradient(135deg,#1a6b3a,#2d9a56)"><div class="stat-val">${data.stats.avecMoyenne}</div><div class="stat-lbl">Ont la moyenne</div></div>
     <div class="stat-box" style="background:linear-gradient(135deg,#c0392b,#e74c3c)"><div class="stat-val">${data.stats.sansMoyenne}</div><div class="stat-lbl">N'ont pas la moyenne</div></div>
     <div class="stat-box" style="background:linear-gradient(135deg,#1a5276,#2980b9)"><div class="stat-val">${data.stats.maxMoyenne ?? '—'}</div><div class="stat-lbl">Meilleure note</div></div>
     <div class="stat-box" style="background:linear-gradient(135deg,#5d4e75,#8e6ba6)"><div class="stat-val">${data.stats.minMoyenne ?? '—'}</div><div class="stat-lbl">Note la plus basse</div></div>
   </div>
-  <div class="taux">Taux de réussite : <strong>${avecMoyennePct}%</strong> — ${data.stats.avecMoyenne} élève(s) sur ${data.stats.effectif} ont obtenu la moyenne</div>
+  <div class="taux">Taux de réussite : <strong>${avecMoyennePct}%</strong> — ${data.stats.avecMoyenne} élève(s) sur ${data.stats.effectif} ont obtenu la moyenne (≥ 10/20)</div>
   <h3>🏆 Classement des élèves</h3>
   <table>
-    <thead><tr><th>Rang</th><th>Nom et Prénom</th><th style="text-align:center">Sexe</th><th style="text-align:center">Moy./10</th><th style="text-align:center">Mention</th><th style="text-align:center">A la moyenne</th></tr></thead>
+    <thead><tr><th>Rang</th><th>Nom et Prénom</th><th style="text-align:center">Sexe</th><th style="text-align:center">Moy./20</th><th style="text-align:center">Mention</th><th style="text-align:center">A la moyenne</th></tr></thead>
     <tbody>${rowsHTML}</tbody>
   </table>
   <h3>📚 Statistiques par matière</h3>
   <table>
-    <thead><tr><th>Matière</th><th style="text-align:center">Moy. classe</th><th style="text-align:center">Max</th><th style="text-align:center">Min</th><th style="text-align:center">% Réussite</th></tr></thead>
+    <thead><tr><th>Matière</th><th>Coef.</th><th style="text-align:center">Moy. classe</th><th style="text-align:center">Max</th><th style="text-align:center">Min</th><th style="text-align:center">% Réussite</th></tr></thead>
     <tbody>${groupeRowsHTML}${simpleRowsHTML}</tbody>
   </table>
-  <div class="footer"><div>Signature du Directeur : _______________________</div><div>Signature du Maître/Maîtresse : _______________________</div></div>
+  <div class="footer"><div>Signature du Proviseur : _______________________</div><div>Signature du Professeur principal : _______________________</div></div>
 </body></html>`
 
     const w = window.open('', '_blank')!
@@ -262,10 +263,10 @@ export default function SynthesePage() {
         <td style="font-weight:700;color:#c8972a">${e.rangAnnuel ? `#${e.rangAnnuel}` : '—'}</td>
         <td><strong>${e.nom}</strong></td>
         <td style="text-align:center">${e.sexe}</td>
-        <td style="text-align:center">${e.moyenneCompo1 !== null ? `${e.moyenneCompo1}/10` : '—'}</td>
-        <td style="text-align:center">${e.moyenneCompo2 !== null ? `${e.moyenneCompo2}/10` : '—'}</td>
-        <td style="text-align:center">${e.moyenneCompo3 !== null ? `${e.moyenneCompo3}/10` : '—'}</td>
-        <td style="text-align:center"><strong>${e.moyenneAnnuelle !== null ? `${e.moyenneAnnuelle}/10` : '—'}</strong></td>
+        <td style="text-align:center">${e.moyenneCompo1 !== null ? `${e.moyenneCompo1}/20` : '—'}</td>
+        <td style="text-align:center">${e.moyenneCompo2 !== null ? `${e.moyenneCompo2}/20` : '—'}</td>
+        <td style="text-align:center">${e.moyenneCompo3 !== null ? `${e.moyenneCompo3}/20` : '—'}</td>
+        <td style="text-align:center"><strong>${e.moyenneAnnuelle !== null ? `${e.moyenneAnnuelle}/20` : '—'}</strong></td>
         <td style="text-align:center">
           <span style="background:${decisionBg};color:${decisionColor};padding:2px 8px;border-radius:10px;font-size:0.72rem;font-weight:700">
             ${e.decision?.includes('Admis') ? '✅' : '🔄'} ${e.decision ?? '—'}
@@ -288,12 +289,12 @@ export default function SynthesePage() {
   </div>
   <div class="stats-grid">
     <div class="stat-box" style="background:linear-gradient(135deg,#1a6b3a,#2d9a56)"><div class="stat-val">${bilanAnnuel.length}</div><div class="stat-lbl">Effectif total</div></div>
-    <div class="stat-box" style="background:linear-gradient(135deg,#c8972a,#e0a830)"><div class="stat-val">${moyenneGlobale !== null ? `${moyenneGlobale}/10` : '—'}</div><div class="stat-lbl">Moyenne annuelle classe</div></div>
+    <div class="stat-box" style="background:linear-gradient(135deg,#c8972a,#e0a830)"><div class="stat-val">${moyenneGlobale !== null ? `${moyenneGlobale}/20` : '—'}</div><div class="stat-lbl">Moyenne annuelle classe</div></div>
     <div class="stat-box" style="background:linear-gradient(135deg,#1a6b3a,#2d9a56)"><div class="stat-val">${admis}</div><div class="stat-lbl">Admis</div></div>
     <div class="stat-box" style="background:linear-gradient(135deg,#c0392b,#e74c3c)"><div class="stat-val">${redouble}</div><div class="stat-lbl">Redoublants</div></div>
     <div class="stat-box" style="background:linear-gradient(135deg,#1a5276,#2980b9)"><div class="stat-val">${tauxReussite}%</div><div class="stat-lbl">Taux de réussite</div></div>
   </div>
-  <div class="taux">Taux de réussite : <strong>${tauxReussite}%</strong> — ${admis} élève(s) admis sur ${bilanAnnuel.length}</div>
+  <div class="taux">Taux de réussite : <strong>${tauxReussite}%</strong> — ${admis} élève(s) admis sur ${bilanAnnuel.length} (≥ 10/20)</div>
   <h3>🏆 Classement annuel des élèves</h3>
   <table>
     <thead><tr>
@@ -303,7 +304,7 @@ export default function SynthesePage() {
     </tr></thead>
     <tbody>${rowsHTML}</tbody>
   </table>
-  <div class="footer"><div>Signature du Directeur : _______________________</div><div>Signature du Maître/Maîtresse : _______________________</div></div>
+  <div class="footer"><div>Signature du Proviseur : _______________________</div><div>Signature du Professeur principal : _______________________</div></div>
 </body></html>`
 
     const w = window.open('', '_blank')!
@@ -337,25 +338,15 @@ export default function SynthesePage() {
           onNiveauChange={setNiveau} onDivChange={setDiv}
           onCompoChange={setCompo} showCompo={mode === 'compo'}
         />
-
         <div style={{ display: 'flex', gap: '0.5rem' }}>
-          <button
-            className={`btn btn-sm ${mode === 'compo' ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={() => switchMode('compo')}
-          >
+          <button className={`btn btn-sm ${mode === 'compo' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => switchMode('compo')}>
             📊 Par composition
           </button>
-          <button
-            className={`btn btn-sm ${mode === 'annuelle' ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={() => switchMode('annuelle')}
-          >
+          <button className={`btn btn-sm ${mode === 'annuelle' ? 'btn-primary' : 'btn-secondary'}`} onClick={() => switchMode('annuelle')}>
             📅 Bilan annuel
           </button>
         </div>
-
-        <button className="btn btn-primary btn-sm" onClick={handleGenerate}>
-          📊 Générer
-        </button>
+        <button className="btn btn-primary btn-sm" onClick={handleGenerate}>📊 Générer</button>
         {data && mode === 'compo' && (
           <button className="btn btn-or btn-sm" onClick={handlePrint}>🖨️ Imprimer</button>
         )}
@@ -374,10 +365,9 @@ export default function SynthesePage() {
               📅 {COMPO_LABELS[compo]} — Classe {niveau}{div}
             </span>
           </div>
-
           <StatsGrid>
             <StatCard value={data.stats.effectif} label="Effectif total" color="vert" />
-            <StatCard value={data.stats.moyenneClasse !== null ? `${data.stats.moyenneClasse}/10` : '—'} label="Moyenne de classe" color="or" />
+            <StatCard value={data.stats.moyenneClasse !== null ? `${data.stats.moyenneClasse}/20` : '—'} label="Moyenne de classe" color="or" />
             <StatCard value={data.stats.avecMoyenne} label="Ont la moyenne" color="vert" />
             <StatCard value={data.stats.sansMoyenne} label="N'ont pas la moyenne" color="rouge" />
             <StatCard value={data.stats.maxMoyenne ?? '—'} label="Meilleure note" color="bleu" />
@@ -388,7 +378,7 @@ export default function SynthesePage() {
           <div className="table-wrap" style={{ marginBottom: '1.5rem' }}>
             <table>
               <thead>
-                <tr><th>Rang</th><th>Nom et Prénom</th><th>Sexe</th><th>Moy./10</th><th>Mention</th><th>Moyenne</th></tr>
+                <tr><th>Rang</th><th>Nom et Prénom</th><th>Sexe</th><th>Moy./20</th><th>Mention</th><th>Moyenne</th></tr>
               </thead>
               <tbody>
                 {sorted.map((e: EleveMoyenne) => {
@@ -398,7 +388,7 @@ export default function SynthesePage() {
                       <td className="rank-cell">{e.rang ? `#${e.rang}` : '—'}</td>
                       <td><strong>{e.nom}</strong></td>
                       <td>{e.sexe}</td>
-                      <td><strong>{e.moyenne !== null ? `${e.moyenne}/10` : '—'}</strong></td>
+                      <td><strong>{e.moyenne !== null ? `${e.moyenne}/20` : '—'}</strong></td>
                       <td>{e.mention?.label && e.mention.label !== '—' ? <span className={`mention ${e.mention.cls}`}>{e.mention.label}</span> : '—'}</td>
                       <td>
                         {e.moyenne !== null
@@ -416,12 +406,13 @@ export default function SynthesePage() {
           <div className="table-wrap">
             <table>
               <thead>
-                <tr><th>Matière</th><th>Moy. classe</th><th>Max</th><th>Min</th><th>% Réussite</th></tr>
+                <tr><th>Matière</th><th>Coef.</th><th>Moy. classe</th><th>Max</th><th>Min</th><th>% Réussite</th></tr>
               </thead>
               <tbody>
                 {groupesUI.map((g) => (
                   <tr key={`groupe-${g.nom}`} style={{ background: '#f0faf5' }}>
                     <td><strong>{g.nom}</strong> <span style={{ fontSize: '0.72rem', color: 'var(--vert)', fontWeight: 400 }}>(groupe)</span></td>
+                    <td>—</td>
                     <td>{g.moyenneClasse ?? '—'}</td>
                     <td>{g.max ?? '—'}</td>
                     <td>{g.min ?? '—'}</td>
@@ -431,6 +422,7 @@ export default function SynthesePage() {
                 {simplesUI.map((ms: MatiereStat) => (
                   <tr key={ms.matiere.id}>
                     <td><strong>{ms.matiere.nom}</strong></td>
+                    <td><span style={{ fontSize: '0.78rem', color: 'var(--txt2)' }}>×{ms.matiere.coef}</span></td>
                     <td>{ms.moyenneClasse ?? '—'}</td>
                     <td>{ms.max ?? '—'}</td>
                     <td>{ms.min ?? '—'}</td>
@@ -451,16 +443,12 @@ export default function SynthesePage() {
               📅 Bilan annuel — Classe {niveau}{div}
             </span>
           </div>
-
           <StatsGrid>
             <StatCard value={bilanAnnuel.length} label="Effectif total" color="vert" />
-            <StatCard value={moyenneAnnuelleClasse !== null ? `${moyenneAnnuelleClasse}/10` : '—'} label="Moyenne annuelle classe" color="or" />
+            <StatCard value={moyenneAnnuelleClasse !== null ? `${moyenneAnnuelleClasse}/20` : '—'} label="Moyenne annuelle classe" color="or" />
             <StatCard value={admisCount} label="Admis" color="vert" />
             <StatCard value={redoubleCount} label="Redoublants" color="rouge" />
-            <StatCard
-              value={bilanAnnuel.length > 0 ? `${Math.round((admisCount / bilanAnnuel.length) * 100)}%` : '—'}
-              label="Taux de réussite" color="bleu"
-            />
+            <StatCard value={bilanAnnuel.length > 0 ? `${Math.round((admisCount / bilanAnnuel.length) * 100)}%` : '—'} label="Taux de réussite" color="bleu" />
           </StatsGrid>
 
           <h3 style={{ fontFamily: 'var(--font-playfair)', color: 'var(--vert)', marginBottom: '1rem' }}>🏆 Classement annuel</h3>
@@ -482,10 +470,10 @@ export default function SynthesePage() {
                     <td className="rank-cell" style={{ fontWeight: 700, color: 'var(--or)' }}>{e.rangAnnuel ? `#${e.rangAnnuel}` : '—'}</td>
                     <td><strong>{e.nom}</strong></td>
                     <td>{e.sexe}</td>
-                    <td style={{ textAlign: 'center' }}>{e.moyenneCompo1 !== null ? `${e.moyenneCompo1}/10` : '—'}</td>
-                    <td style={{ textAlign: 'center' }}>{e.moyenneCompo2 !== null ? `${e.moyenneCompo2}/10` : '—'}</td>
-                    <td style={{ textAlign: 'center' }}>{e.moyenneCompo3 !== null ? `${e.moyenneCompo3}/10` : '—'}</td>
-                    <td style={{ textAlign: 'center' }}><strong>{e.moyenneAnnuelle !== null ? `${e.moyenneAnnuelle}/10` : '—'}</strong></td>
+                    <td style={{ textAlign: 'center' }}>{e.moyenneCompo1 !== null ? `${e.moyenneCompo1}/20` : '—'}</td>
+                    <td style={{ textAlign: 'center' }}>{e.moyenneCompo2 !== null ? `${e.moyenneCompo2}/20` : '—'}</td>
+                    <td style={{ textAlign: 'center' }}>{e.moyenneCompo3 !== null ? `${e.moyenneCompo3}/20` : '—'}</td>
+                    <td style={{ textAlign: 'center' }}><strong>{e.moyenneAnnuelle !== null ? `${e.moyenneAnnuelle}/20` : '—'}</strong></td>
                     <td style={{ textAlign: 'center' }}>
                       {e.decision
                         ? <span className={`badge ${e.decision.includes('Admis') ? 'badge-success' : 'badge-danger'}`}>
@@ -501,7 +489,6 @@ export default function SynthesePage() {
         </>
       )}
 
-      {/* États vides */}
       {!triggered && (
         <div className="empty">
           <div className="empty-icon">📊</div>

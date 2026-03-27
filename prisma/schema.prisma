@@ -37,6 +37,7 @@ model Config {
 model Matiere {
   id     Int    @id @default(autoincrement())
   nom    String
+  coef   Float  @default(1)   // 👈 champ ajouté
   bareme Int    @default(20)
   ordre  Int    @default(0)
   niveau String

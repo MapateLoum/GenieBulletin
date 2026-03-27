@@ -11,7 +11,7 @@ const ConfigSchema = z.object({
   nomDirecteur: z.string().max(100).optional(),
   localite:     z.string().max(100).optional(),
   nomMaitre:    z.string().max(100).optional(),
-  classeActive: z.string().max(5).optional(),
+  classeActive: z.string().max(10).optional(),
   divActive:    z.string().max(2).optional(),
 })
 
@@ -19,13 +19,15 @@ async function getOrCreateConfig() {
   let config = await prisma.config.findFirst()
   if (!config) {
     config = await prisma.config.create({
-      data: { nomEcole: '', annee: '2025 - 2026', nomDirecteur: '', localite: '', nomMaitre: '', classeActive: 'CI', divActive: 'A' },
+      data: {
+        nomEcole: '', annee: '2025 - 2026', nomDirecteur: '',
+        localite: '', nomMaitre: '', classeActive: '6ème', divActive: 'A',
+      },
     })
   }
   return config
 }
 
-// Tout le monde peut lire la config (nom école, année, etc.)
 export async function GET() {
   try {
     const session = await getServerSession(authOptions)
@@ -38,7 +40,6 @@ export async function GET() {
   }
 }
 
-// Seul le directeur peut modifier la config
 export async function PUT(req: Request) {
   try {
     const session = await getServerSession(authOptions)

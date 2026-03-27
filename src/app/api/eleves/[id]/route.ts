@@ -1,3 +1,4 @@
+// src/app/api/eleves/[id]/route.ts
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
@@ -42,7 +43,6 @@ export async function PUT(
 }
 
 export async function DELETE(
-  // ... ton DELETE existant, inchangé
   _req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
@@ -54,7 +54,6 @@ export async function DELETE(
     const id = parseInt(rawId)
     if (isNaN(id)) return NextResponse.json({ error: 'ID invalide' }, { status: 400 })
 
-    // Vérifier que l'élève appartient à la classe du maître
     const eleve = await prisma.eleve.findUnique({ where: { id } })
     if (!eleve) return NextResponse.json({ error: 'Élève introuvable' }, { status: 404 })
 

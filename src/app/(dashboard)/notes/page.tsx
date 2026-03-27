@@ -41,7 +41,7 @@ function buildGroupes(matieres: Matiere[]): GroupeMatiere[] {
 
 export default function NotesPage() {
   const qc = useQueryClient()
-  const [niveau, setNiveau] = useState<Niveau>('CI')
+  const [niveau, setNiveau] = useState<Niveau>('6ème')
   const [div, setDiv] = useState<Division>('A')
   const [compo, setCompo] = useState(1)
   const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
@@ -49,19 +49,19 @@ export default function NotesPage() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [showConfirmClear, setShowConfirmClear] = useState(false)
 
-const { data: eleves = [] } = useQuery<Eleve[]>({
-  queryKey: ['eleves', niveau, div],
-  queryFn: async () => {
-    const r = await fetch(`/api/eleves?niveau=${niveau}&div=${div}`)
-    if (!r.ok) return []
-    const data: Eleve[] = await r.json()
-    return data.sort((a, b) => {
-      const nomA = a.nom.trim().split(/\s+/).at(-1) ?? a.nom
-      const nomB = b.nom.trim().split(/\s+/).at(-1) ?? b.nom
-      return nomA.localeCompare(nomB, 'fr', { sensitivity: 'base' })
-    })
-  },
-})
+  const { data: eleves = [] } = useQuery<Eleve[]>({
+    queryKey: ['eleves', niveau, div],
+    queryFn: async () => {
+      const r = await fetch(`/api/eleves?niveau=${niveau}&div=${div}`)
+      if (!r.ok) return []
+      const data: Eleve[] = await r.json()
+      return data.sort((a, b) => {
+        const nomA = a.nom.trim().split(/\s+/).at(-1) ?? a.nom
+        const nomB = b.nom.trim().split(/\s+/).at(-1) ?? b.nom
+        return nomA.localeCompare(nomB, 'fr', { sensitivity: 'base' })
+      })
+    },
+  })
 
   const { data: matieres = [] } = useQuery<Matiere[]>({
     queryKey: ['matieres', niveau, div, compo],
@@ -126,69 +126,62 @@ const { data: eleves = [] } = useQuery<Eleve[]>({
   }
 
   // ── Import Excel notes ────────────────────────────────────────
-async function handleImportNotes(e: React.ChangeEvent<HTMLInputElement>) {
-  const file = e.target.files?.[0]
-  if (!file) return
+  async function handleImportNotes(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
 
-  const buffer = await file.arrayBuffer()
-  const wb = XLSX.read(buffer)
-  const ws = wb.Sheets[wb.SheetNames[0]]
-  const rows = XLSX.utils.sheet_to_json<any[]>(ws, { header: 1 }) as any[][]
+    const buffer = await file.arrayBuffer()
+    const wb = XLSX.read(buffer)
+    const ws = wb.Sheets[wb.SheetNames[0]]
+    const rows = XLSX.utils.sheet_to_json<any[]>(ws, { header: 1 }) as any[][]
 
-  if (rows.length < 2) { toast.error('Fichier vide'); return }
+    if (rows.length < 2) { toast.error('Fichier vide'); return }
 
-  // Ligne 0 = en-têtes
-  // Col 0 = N°, Col 1 = Prénoms, Col 2 = Nom, Col 3 = Sexe, Col 4+ = matières
-// Après
-const headers = rows[0].map((h: any) =>
-  String(h ?? '').replace(/\r?\n/g, ' ').replace(/\s+/g, ' ').trim()
-)
-  const matiereHeaders = headers.slice(4) // noms des matières depuis col E
+    const headers = rows[0].map((h: any) =>
+      String(h ?? '').replace(/\r?\n/g, ' ').replace(/\s+/g, ' ').trim()
+    )
+    const matiereHeaders = headers.slice(4)
 
-  if (!matiereHeaders.length) { toast.error('Aucune matière trouvée'); return }
+    if (!matiereHeaders.length) { toast.error('Aucune matière trouvée'); return }
 
-  const dataRows = rows.slice(1)
-    .filter(r => r[1] || r[2])
-    .map(r => {
-      const notes: Record<string, number | null> = {}
-      matiereHeaders.forEach((nom, i) => {
-        if (!nom) return
-        const v = r[4 + i]
-        notes[nom] = (v !== undefined && v !== '') ? parseFloat(v) : null
+    const dataRows = rows.slice(1)
+      .filter(r => r[1] || r[2])
+      .map(r => {
+        const notes: Record<string, number | null> = {}
+        matiereHeaders.forEach((nom, i) => {
+          if (!nom) return
+          const v = r[4 + i]
+          notes[nom] = (v !== undefined && v !== '') ? parseFloat(v) : null
+        })
+        return {
+          prenom: String(r[1] ?? '').trim(),
+          nom:    String(r[2] ?? '').trim(),
+          notes,
+        }
       })
-      return {
-        prenom: String(r[1] ?? '').trim(),
-        nom:    String(r[2] ?? '').trim(),
-        notes,
-      }
-    })
-    .filter(r => r.prenom || r.nom)
+      .filter(r => r.prenom || r.nom)
 
-  if (!dataRows.length) { toast.error('Aucune donnée valide'); return }
+    if (!dataRows.length) { toast.error('Aucune donnée valide'); return }
 
-  const toastId = toast.loading('Import en cours...')
-  try {
-    const res = await fetch('/api/notes/import', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ niveau, div, compo, rows: dataRows }),
-    })
-    if (!res.ok) throw new Error()
-    const result = await res.json()
-
-    await Promise.all([
-      qc.invalidateQueries({ queryKey: ['notes', niveau, div, compo] }),
-    ])
-
-    const msg = result.elevesNonTrouves?.length
-      ? `Import terminé ! (${result.elevesNonTrouves.length} élève(s) non trouvé(s) dans l'Excel)`
-      : 'Import terminé !'
-    toast.success(msg, { id: toastId })
-  } catch {
-    toast.error("Erreur lors de l'import", { id: toastId })
+    const toastId = toast.loading('Import en cours...')
+    try {
+      const res = await fetch('/api/notes/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ niveau, div, compo, rows: dataRows }),
+      })
+      if (!res.ok) throw new Error()
+      const result = await res.json()
+      await qc.invalidateQueries({ queryKey: ['notes', niveau, div, compo] })
+      const msg = result.elevesNonTrouves?.length
+        ? `Import terminé ! (${result.elevesNonTrouves.length} élève(s) non trouvé(s))`
+        : 'Import terminé !'
+      toast.success(msg, { id: toastId })
+    } catch {
+      toast.error("Erreur lors de l'import", { id: toastId })
+    }
+    e.target.value = ''
   }
-  e.target.value = ''
-}
 
   // ── Vider toutes les notes ────────────────────────────────────
   async function confirmClearNotes() {
@@ -216,15 +209,15 @@ const headers = rows[0].map((h: any) =>
     function buildTheadRow1(gs: GroupeMatiere[]) {
       return gs.map(g => {
         if (!g.isGroupe)
-          return `<th rowspan="2" style="vertical-align:middle">${g.groupeNom}<br/><small>/${g.baremeTotal}</small></th>`
-        return `<th colspan="${g.matieres.length + 1}" style="background:#155c30">${g.groupeNom}<br/><small>/${g.baremeTotal}</small></th>`
+          return `<th rowspan="2" style="vertical-align:middle">${g.groupeNom}<br/><small>/20</small></th>`
+        return `<th colspan="${g.matieres.length + 1}" style="background:#155c30">${g.groupeNom}</th>`
       }).join('')
     }
 
     function buildTheadRow2(gs: GroupeMatiere[]) {
       return gs.map(g => {
         if (!g.isGroupe) return ''
-        const subCols = g.matieres.map(m => `<th>${m.nom}<br/><small>/${m.bareme}</small></th>`).join('')
+        const subCols = g.matieres.map(m => `<th>${m.nom}<br/><small>/20</small></th>`).join('')
         return subCols + `<th style="background:#0f4a27">Total<br/><small>/${g.baremeTotal}</small></th>`
       }).join('')
     }
@@ -264,15 +257,15 @@ const headers = rows[0].map((h: any) =>
           <div class="sous-titre">${COMPO_LABELS[compo]} - Classe <strong>${niveau}${div}</strong></div>
         </div>
         <div style="text-align:right;font-size:0.78rem;color:#555">
-          <div>Imprime le ${new Date().toLocaleDateString('fr-FR')}</div>
-          <div>Effectif : <strong>${eleves.length} eleves</strong></div>
+          <div>Imprimé le ${new Date().toLocaleDateString('fr-FR')}</div>
+          <div>Effectif : <strong>${eleves.length} élèves</strong></div>
         </div>
       </div>
       <table>
         <thead>
           <tr>
             <th rowspan="2" style="vertical-align:middle">#</th>
-            <th rowspan="2" style="vertical-align:middle">Nom et Prenom</th>
+            <th rowspan="2" style="vertical-align:middle">Nom et Prénom</th>
             <th rowspan="2" style="vertical-align:middle">Sexe</th>
             ${buildTheadRow1(gs)}
           </tr>
@@ -281,8 +274,8 @@ const headers = rows[0].map((h: any) =>
         <tbody>${buildRows(gs)}</tbody>
       </table>
       <div class="footer">
-        <div>Signature du Maitre/Maitresse : _______________________</div>
-        <div>Signature du Directeur : _______________________</div>
+        <div>Signature du Professeur : _______________________</div>
+        <div>Signature du Proviseur : _______________________</div>
       </div>`
     }
 
@@ -325,7 +318,7 @@ const headers = rows[0].map((h: any) =>
     th:first-child, th:nth-child(2), th:nth-child(3) { text-align: left; }
     td { padding: 4px 6px; border: 1px solid #ddd; text-align: center; vertical-align: middle; }
     td:first-child, td:nth-child(2), td:nth-child(3) { text-align: left; }
-    tr:nth-child(even) { background: #f8faf8 !important; }
+    tr:nth-child(even) { background: #f8faf8 important; }
     .footer { margin-top: 4rem; display: flex; justify-content: space-between;
               font-size: 0.72rem; color: #777; padding-top: 0.8rem; }
   </style>
@@ -359,46 +352,29 @@ const headers = rows[0].map((h: any) =>
           Supprimer <strong>toutes les notes</strong> de {niveau}{div} — Compo {compo} ?
         </p>
         <div style={{ display: 'flex', gap: '0.8rem', justifyContent: 'center' }}>
-          <button className="btn btn-danger" onClick={confirmClearNotes}>
-            Confirmer
-          </button>
-          <button className="btn btn-secondary" onClick={() => setShowConfirmClear(false)}>
-            Annuler
-          </button>
+          <button className="btn btn-danger" onClick={confirmClearNotes}>Confirmer</button>
+          <button className="btn btn-secondary" onClick={() => setShowConfirmClear(false)}>Annuler</button>
         </div>
       </div>
     </div>
   )
 
-  // ── SelectorBar réutilisable ──────────────────────────────────
   const selectorBar = (
     <SelectorBar>
       <ClasseSelector niveau={niveau} div={div} compo={compo}
         onNiveauChange={setNiveau} onDivChange={setDiv}
         onCompoChange={setCompo} showCompo />
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept=".xlsx,.xls"
-        style={{ display: 'none' }}
-        onChange={handleImportNotes}
-      />
-      <button
-        className="btn btn-secondary btn-sm no-print"
-        onClick={() => fileInputRef.current?.click()}
-      >
+      <input ref={fileInputRef} type="file" accept=".xlsx,.xls"
+        style={{ display: 'none' }} onChange={handleImportNotes} />
+      <button className="btn btn-secondary btn-sm no-print" onClick={() => fileInputRef.current?.click()}>
         📥 Importer Excel
       </button>
-      <button
-        className="btn btn-danger btn-sm no-print"
-        onClick={() => setShowConfirmClear(true)}
-      >
+      <button className="btn btn-danger btn-sm no-print" onClick={() => setShowConfirmClear(true)}>
         🗑️ Vider les notes
       </button>
     </SelectorBar>
   )
 
-  // ── États vides ───────────────────────────────────────────────
   if (!eleves.length) return (
     <>
       {confirmModal}
@@ -425,7 +401,6 @@ const headers = rows[0].map((h: any) =>
     </>
   )
 
-  // ── Rendu principal ───────────────────────────────────────────
   return (
     <>
       {confirmModal}
@@ -434,23 +409,12 @@ const headers = rows[0].map((h: any) =>
           <ClasseSelector niveau={niveau} div={div} compo={compo}
             onNiveauChange={setNiveau} onDivChange={setDiv}
             onCompoChange={setCompo} showCompo />
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".xlsx,.xls"
-            style={{ display: 'none' }}
-            onChange={handleImportNotes}
-          />
-          <button
-            className="btn btn-secondary btn-sm no-print"
-            onClick={() => fileInputRef.current?.click()}
-          >
+          <input ref={fileInputRef} type="file" accept=".xlsx,.xls"
+            style={{ display: 'none' }} onChange={handleImportNotes} />
+          <button className="btn btn-secondary btn-sm no-print" onClick={() => fileInputRef.current?.click()}>
             📥 Importer Excel
           </button>
-          <button
-            className="btn btn-danger btn-sm no-print"
-            onClick={() => setShowConfirmClear(true)}
-          >
+          <button className="btn btn-danger btn-sm no-print" onClick={() => setShowConfirmClear(true)}>
             🗑️ Vider les notes
           </button>
           <button className="btn btn-or btn-sm no-print" onClick={handlePrint}>
@@ -476,17 +440,14 @@ const headers = rows[0].map((h: any) =>
                   if (!g.isGroupe) {
                     return (
                       <th key={`g-${gi}`} rowSpan={2} style={{ verticalAlign: 'middle' }}>
-                        {g.groupeNom}<br /><small>/{g.baremeTotal}</small>
+                        {g.groupeNom}<br /><small>/20</small>
                       </th>
                     )
                   }
                   return (
-                    <th
-                      key={`g-${gi}`}
-                      colSpan={g.matieres.length + 1}
-                      style={{ background: 'var(--vert-fonce, #155c30)', borderBottom: '2px solid #fff4' }}
-                    >
-                      {g.groupeNom}<br /><small>/{g.baremeTotal}</small>
+                    <th key={`g-${gi}`} colSpan={g.matieres.length + 1}
+                      style={{ background: 'var(--vert-fonce, #155c30)', borderBottom: '2px solid #fff4' }}>
+                      {g.groupeNom}
                     </th>
                   )
                 })}
@@ -498,7 +459,7 @@ const headers = rows[0].map((h: any) =>
                     <React.Fragment key={`g2-${gi}`}>
                       {g.matieres.map(m => (
                         <th key={m.id} style={{ fontWeight: 400, opacity: 0.9 }}>
-                          {m.nom}<br /><small>/{m.bareme}</small>
+                          {m.nom}<br /><small>/20</small>
                         </th>
                       ))}
                       <th style={{ background: 'var(--vert-fonce, #0f4a27)' }}>
@@ -509,7 +470,6 @@ const headers = rows[0].map((h: any) =>
                 })}
               </tr>
             </thead>
-
             <tbody>
               {eleves.map(e => (
                 <tr key={e.id}>
@@ -519,26 +479,16 @@ const headers = rows[0].map((h: any) =>
                       {g.matieres.map(m => (
                         <td key={m.id}>
                           <input
-                            type="number" min={0} max={m.bareme} step={0.25}
+                            type="number" min={0} max={20} step={0.25}
                             value={getVal(e.id, m.id)}
                             key={`${e.id}-${m.id}-${compo}`}
-                            style={{
-                              width: 70, padding: '4px 6px',
-                              border: '1px solid #ccc', borderRadius: 6,
-                              fontSize: '0.85rem'
-                            }}
-                            onChange={ev => handleNoteChange(e.id, m.id, ev.target.value, m.bareme)}
+                            style={{ width: 70, padding: '4px 6px', border: '1px solid #ccc', borderRadius: 6, fontSize: '0.85rem' }}
+                            onChange={ev => handleNoteChange(e.id, m.id, ev.target.value, 20)}
                           />
                         </td>
                       ))}
                       {g.isGroupe && (
-                        <td style={{
-                          fontWeight: 700,
-                          background: 'var(--vert-pale, #f0f7f2)',
-                          color: 'var(--vert, #1a6b3a)',
-                          minWidth: 60,
-                          textAlign: 'center',
-                        }}>
+                        <td style={{ fontWeight: 700, background: 'var(--vert-pale, #f0f7f2)', color: 'var(--vert, #1a6b3a)', minWidth: 60, textAlign: 'center' }}>
                           {getGroupeTotal(e.id, g.matieres)}
                         </td>
                       )}

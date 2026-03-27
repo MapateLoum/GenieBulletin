@@ -16,16 +16,16 @@ function EditMatiereModal({
 }: {
   matiere: Matiere
   onClose: () => void
-  onSave: (nom: string, bareme: number) => void
+  onSave: (nom: string, coef: number) => void
   isPending: boolean
 }) {
-  const [nom, setNom]       = useState(matiere.nom)
-  const [bareme, setBareme] = useState(matiere.bareme)
+  const [nom, setNom]   = useState(matiere.nom)
+  const [coef, setCoef] = useState(matiere.coef ?? 1)
 
   function handleSubmit() {
-    if (!nom.trim()) { toast.error('Entrez le nom');   return }
-    if (bareme < 1)  { toast.error('Barème invalide'); return }
-    onSave(nom.trim(), bareme)
+    if (!nom.trim())  { toast.error('Entrez le nom');         return }
+    if (coef < 1)     { toast.error('Coefficient invalide');  return }
+    onSave(nom.trim(), coef)
   }
 
   return (
@@ -48,15 +48,18 @@ function EditMatiereModal({
             />
           </div>
           <div>
-            <label>Noté sur</label>
+            <label>Coefficient</label>
             <input
-              type="text" inputMode="numeric" value={bareme === 0 ? '' : bareme}
+              type="text" inputMode="numeric" value={coef === 0 ? '' : coef}
               style={{ width: 90 }}
               onChange={e => {
                 const v = e.target.value.replace(/[^0-9]/g, '')
-                setBareme(v === '' ? 0 : parseInt(v))
+                setCoef(v === '' ? 0 : parseInt(v))
               }}
             />
+          </div>
+          <div style={{ fontSize: '0.78rem', color: 'var(--txt2)' }}>
+            Toutes les matières sont notées sur <strong>20</strong>
           </div>
         </div>
         <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.5rem', justifyContent: 'flex-end' }}>
@@ -78,11 +81,11 @@ export default function ConfigurationPage() {
 
   const { data: config } = useQuery({ queryKey: ['config'], queryFn: fetchConfig })
 
-  const [matNiveau, setMatNiveau] = useState('CI')
+  const [matNiveau, setMatNiveau] = useState('6ème')
   const [matDiv, setMatDiv]       = useState('A')
   const [matCompo, setMatCompo]   = useState(1)
 
-  const effectifNiveau = isDirecteur ? matNiveau : (session?.user?.niveau ?? 'CI')
+  const effectifNiveau = isDirecteur ? matNiveau : (session?.user?.niveau ?? '6ème')
   const effectifDiv    = isDirecteur ? matDiv    : (session?.user?.div    ?? 'A')
   const effectifCompo  = matCompo
 
@@ -98,9 +101,9 @@ export default function ConfigurationPage() {
 
   const [form, setForm] = useState({
     nomEcole: '', annee: '', nomDirecteur: '', localite: '', nomMaitre: '',
-    classeActive: 'CI', divActive: 'A',
+    classeActive: '6ème', divActive: 'A',
   })
-  const [newMat, setNewMat]           = useState({ nom: '', bareme: 20 })
+  const [newMat, setNewMat]           = useState({ nom: '', coef: 1 })
   const [editMatiere, setEditMatiere] = useState<Matiere | null>(null)
 
   useEffect(() => {
@@ -127,7 +130,7 @@ export default function ConfigurationPage() {
   })
 
   const addMatiere = useMutation({
-    mutationFn: async (data: { nom: string; bareme: number; compo: number; niveau?: string; div?: string }) => {
+    mutationFn: async (data: { nom: string; coef: number; compo: number; niveau?: string; div?: string }) => {
       const r = await fetch('/api/matieres', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -139,18 +142,18 @@ export default function ConfigurationPage() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['matieres', effectifNiveau, effectifDiv, effectifCompo] })
-      setNewMat({ nom: '', bareme: 20 })
+      setNewMat({ nom: '', coef: 1 })
       toast.success('Matière ajoutée')
     },
     onError: (err: Error) => toast.error(err.message),
   })
 
   const updateMatiere = useMutation({
-    mutationFn: ({ id, nom, bareme }: { id: number; nom: string; bareme: number }) =>
+    mutationFn: ({ id, nom, coef }: { id: number; nom: string; coef: number }) =>
       fetch(`/api/matieres/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nom, bareme }),
+        body: JSON.stringify({ nom, coef }),
       }).then(r => r.json()),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['matieres', effectifNiveau, effectifDiv, effectifCompo] })
@@ -173,12 +176,12 @@ export default function ConfigurationPage() {
   }
 
   function handleAddMatiere() {
-    if (!newMat.nom.trim())          { toast.error('Entrez le nom de la matière'); return }
-    if (!newMat.bareme || newMat.bareme < 1) { toast.error('Entrez un barème valide'); return }
+    if (!newMat.nom.trim())        { toast.error('Entrez le nom de la matière'); return }
+    if (!newMat.coef || newMat.coef < 1) { toast.error('Entrez un coefficient valide'); return }
     addMatiere.mutate({
-      nom:    newMat.nom.trim(),
-      bareme: newMat.bareme,
-      compo:  effectifCompo,
+      nom:   newMat.nom.trim(),
+      coef:  newMat.coef,
+      compo: effectifCompo,
       ...(isDirecteur ? { niveau: effectifNiveau, div: effectifDiv } : {}),
     })
   }
@@ -189,7 +192,7 @@ export default function ConfigurationPage() {
         <EditMatiereModal
           matiere={editMatiere}
           onClose={() => setEditMatiere(null)}
-          onSave={(nom, bareme) => updateMatiere.mutate({ id: editMatiere.id, nom, bareme })}
+          onSave={(nom, coef) => updateMatiere.mutate({ id: editMatiere.id, nom, coef })}
           isPending={updateMatiere.isPending}
         />
       )}
@@ -197,15 +200,15 @@ export default function ConfigurationPage() {
       {isDirecteur && (
         <Card title="Informations de l'établissement">
           <FormGrid>
-            <Field label="Nom de l'école">
-              <input type="text" value={form.nomEcole} placeholder="Ex : École Élémentaire Dakar"
+            <Field label="Nom de l'établissement">
+              <input type="text" value={form.nomEcole} placeholder="Ex : Lycée Lamine Guèye"
                 onChange={e => handleFieldChange('nomEcole', e.target.value)} />
             </Field>
             <Field label="Année scolaire">
               <input type="text" value={form.annee} placeholder="Ex : 2025 - 2026"
                 onChange={e => handleFieldChange('annee', e.target.value)} />
             </Field>
-            <Field label="Nom du directeur">
+            <Field label="Nom du proviseur">
               <input type="text" value={form.nomDirecteur} placeholder="Ex : M. Diallo"
                 onChange={e => handleFieldChange('nomDirecteur', e.target.value)} />
             </Field>
@@ -223,10 +226,10 @@ export default function ConfigurationPage() {
       )}
 
       {!isDirecteur && (
-        <Card title="Mon profil de classe">
+        <Card title="Mon profil">
           <FormGrid>
             <Field label="Mon nom (affiché sur les bulletins)">
-              <input type="text" value={form.nomMaitre} placeholder="Ex : Mme Faye"
+              <input type="text" value={form.nomMaitre} placeholder="Ex : M. Faye"
                 onChange={e => handleFieldChange('nomMaitre', e.target.value)} />
             </Field>
           </FormGrid>
@@ -283,6 +286,7 @@ export default function ConfigurationPage() {
                   <th>#</th>
                   <th>Matière</th>
                   <th>Barème</th>
+                  <th>Coef.</th>
                   <th className="no-print">Action</th>
                 </tr>
               </thead>
@@ -291,7 +295,8 @@ export default function ConfigurationPage() {
                   <tr key={m.id}>
                     <td>{i + 1}</td>
                     <td><strong>{m.nom}</strong></td>
-                    <td>/{m.bareme}</td>
+                    <td>/20</td>
+                    <td><strong>{m.coef ?? 1}</strong></td>
                     <td className="no-print">
                       <div style={{ display: 'flex', gap: '0.5rem' }}>
                         <button className="btn btn-secondary btn-sm" onClick={() => setEditMatiere(m)}>✏️</button>
@@ -336,21 +341,24 @@ export default function ConfigurationPage() {
               onKeyDown={e => e.key === 'Enter' && handleAddMatiere()}
             />
           </Field>
-          <Field label="Noté sur">
+          <Field label="Coefficient">
             <input
-              type="text" inputMode="numeric" pattern="[0-9]*" placeholder="Ex : 20"
-              value={newMat.bareme === 0 ? '' : newMat.bareme}
+              type="text" inputMode="numeric" pattern="[0-9]*" placeholder="Ex : 4"
+              value={newMat.coef === 0 ? '' : newMat.coef}
               style={{ width: 100 }}
               onChange={e => {
                 const val = e.target.value.replace(/[^0-9]/g, '')
-                setNewMat(m => ({ ...m, bareme: val === '' ? 0 : parseInt(val) }))
+                setNewMat(m => ({ ...m, coef: val === '' ? 0 : parseInt(val) }))
               }}
             />
           </Field>
-          <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-end', gap: '0.5rem' }}>
             <button className="btn btn-primary" onClick={handleAddMatiere} disabled={addMatiere.isPending}>
               ➕ Ajouter
             </button>
+            <span style={{ fontSize: '0.75rem', color: 'var(--txt2)', paddingBottom: '2px' }}>
+              Noté sur 20
+            </span>
           </div>
         </FormGrid>
       </Card>

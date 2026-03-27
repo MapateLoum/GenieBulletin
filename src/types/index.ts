@@ -1,7 +1,7 @@
 // src/types/index.ts
 
-export type Niveau = 'CI' | 'CP' | 'CE1' | 'CE2' | 'CM1' | 'CM2'
-export type Division = 'A' | 'B'
+export type Niveau = '6ème' | '5ème' | '4ème' | '3ème' | '2nde' | '1ère' | 'Tle'
+export type Division = 'A' | 'B' | 'C' | 'D'
 export type Sexe = 'G' | 'F'
 export type NumCompo = 1 | 2 | 3
 

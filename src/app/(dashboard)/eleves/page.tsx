@@ -87,7 +87,7 @@ function EditModal({
 // ── Page principale ───────────────────────────────────────────
 export default function ElevesPage() {
   const qc = useQueryClient()
-  const [niveau, setNiveau] = useState<Niveau>('CI')
+  const [niveau, setNiveau] = useState<Niveau>('6ème')
   const [div, setDiv]       = useState<Division>('A')
   const [nom, setNom]       = useState('')
   const [sexe, setSexe]     = useState<'G' | 'F'>('F')
@@ -167,8 +167,6 @@ export default function ElevesPage() {
     const ws = wb.Sheets[wb.SheetNames[0]]
     const rows = XLSX.utils.sheet_to_json<any[]>(ws, { header: 1 }) as any[][]
 
-    // Ignore ligne 1 (en-têtes), lit à partir de la ligne 2
-    // Colonnes : A=N°, B=Prénom, C=Nom, D=Sexe (M ou F dans le fichier)
     const elevesToImport = rows.slice(1)
       .filter(r => r[1] || r[2])
       .map(r => {
@@ -218,7 +216,7 @@ export default function ElevesPage() {
       th,td{border:1px solid #333;padding:8px 12px;text-align:left}th{background:#1a6b3a;color:#fff}
       </style></head><body>
       <h2>Liste des élèves — Classe ${niveau}${div}</h2>
-      <p class="info">Année : — | Maître/Maîtresse : —</p>
+      <p class="info">Année : — | Professeur principal : —</p>
       <table><thead><tr><th>#</th><th>Nom et Prénom</th><th>Sexe</th><th>Signature</th></tr></thead>
       <tbody>${elevesTriés.map((e, i) => `<tr><td>${i + 1}</td><td>${e.nom}</td><td>${e.sexe}</td><td></td></tr>`).join('')}</tbody></table>
       <p style="margin-top:1.5rem;font-size:0.85rem;">Total : ${elevesTriés.length} élèves (${g} G / ${f} F)</p>

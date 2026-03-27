@@ -8,8 +8,8 @@ import { z } from 'zod'
 const EleveSchema = z.object({
   nom:    z.string().min(1).max(150),
   sexe:   z.enum(['G', 'F']),
-  niveau: z.enum(['CI', 'CP', 'CE1', 'CE2', 'CM1', 'CM2']),
-  div:    z.enum(['A', 'B']),
+  niveau: z.enum(['6ème', '5ème', '4ème', '3ème', '2nde', '1ère', 'Tle']),
+  div:    z.enum(['A', 'B', 'C', 'D']),
 })
 
 function peutAcceder(session: any, niveau: string, div: string): boolean {
@@ -36,10 +36,7 @@ export async function GET(req: Request) {
     if (niveau) where.niveau = niveau
     if (div)    where.div    = div
 
-    const eleves = await prisma.eleve.findMany({
-      where,
-      // orderBy: { nom: 'asc' },
-    })
+    const eleves = await prisma.eleve.findMany({ where })
     return NextResponse.json(eleves)
   } catch {
     return NextResponse.json({ error: 'Erreur serveur' }, { status: 500 })

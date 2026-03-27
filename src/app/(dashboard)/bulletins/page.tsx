@@ -17,10 +17,10 @@ type BilanAnnuel = {
   decision:        string | null
 }
 
-// ── Ligne de matière regroupée (pour l'affichage bulletin) ────
+// ── Ligne de matière pour le bulletin ────────────────────────
 type LigneBulletin =
-  | { type: 'simple'; matiere: Matiere; note: number | null; sur10: number | null }
-  | { type: 'groupe'; nom: string; noteTotal: number | null; baremeTotal: number; sur10: number | null; matieres: Matiere[] }
+  | { type: 'simple'; matiere: Matiere; note: number | null }
+  | { type: 'groupe'; nom: string; noteTotal: number | null; baremeTotal: number; matieres: Matiere[] }
 
 function buildLignesBulletin(matieres: Matiere[], notes: Note[], eleveId: number): LigneBulletin[] {
   const lignes: LigneBulletin[] = []
@@ -41,16 +41,10 @@ function buildLignesBulletin(matieres: Matiere[], notes: Note[], eleveId: number
         noteTotal += n.valeur
       }
 
-      const sur10 = noteTotal !== null && baremeTotal > 0
-        ? Math.round((noteTotal / baremeTotal) * 10 * 100) / 100
-        : null
-
-      lignes.push({ type: 'groupe', nom: m.groupeNom, noteTotal, baremeTotal, sur10, matieres: membres })
+      lignes.push({ type: 'groupe', nom: m.groupeNom, noteTotal, baremeTotal, matieres: membres })
     } else {
       const note = notes.find(n => n.eleveId === eleveId && n.matiereId === m.id)
-      const val = note?.valeur ?? null
-      const sur10 = val !== null ? Math.round((val / m.bareme) * 10 * 100) / 100 : null
-      lignes.push({ type: 'simple', matiere: m, note: val, sur10 })
+      lignes.push({ type: 'simple', matiere: m, note: note?.valeur ?? null })
     }
   }
 
@@ -58,22 +52,15 @@ function buildLignesBulletin(matieres: Matiere[], notes: Note[], eleveId: number
 }
 
 export default function BulletinsPage() {
-  const [niveau, setNiveau] = useState<Niveau>('CI')
+  const [niveau, setNiveau] = useState<Niveau>('6ème')
   const [div, setDiv] = useState<Division>('A')
   const [compo, setCompo] = useState(1)
   const apprTimers = useRef<Record<number, ReturnType<typeof setTimeout>>>({})
   const [recherche, setRecherche] = useState('')
   const [showSuggestions, setShowSuggestions] = useState(false)
 
-  const { data: me } = useQuery({
-    queryKey: ['me'],
-    queryFn: () => fetch('/api/me').then(r => r.json()),
-  })
-
-  const { data: config } = useQuery({
-    queryKey: ['config'],
-    queryFn: () => fetch('/api/config').then(r => r.json()),
-  })
+  const { data: me } = useQuery({ queryKey: ['me'], queryFn: () => fetch('/api/me').then(r => r.json()) })
+  const { data: config } = useQuery({ queryKey: ['config'], queryFn: () => fetch('/api/config').then(r => r.json()) })
 
   const { data: eleves = [] } = useQuery<Eleve[]>({
     queryKey: ['eleves', niveau, div],
@@ -123,8 +110,6 @@ export default function BulletinsPage() {
     enabled: compo === 3 && eleves.length > 0,
   })
 
-  // --- LOGIQUE DE CALCUL CORRIGÉE ---
-  // On utilise computeElevesAvecRangs qui doit faire la somme (Points / Barème total * 10)
   const elevesAvecRangs: EleveMoyenne[] = computeElevesAvecRangs(eleves, notes, matieres)
     .sort((a, b) => {
       if (a.rang === null && b.rang === null) return 0
@@ -160,10 +145,7 @@ export default function BulletinsPage() {
   function handlePrintOne(eleveId: number) {
     const nom = elevesAvecRangs.find(e => e.id === eleveId)?.nom ?? ''
     setRecherche(nom)
-    setTimeout(() => {
-      window.print()
-      setTimeout(() => setRecherche(''), 500)
-    }, 150)
+    setTimeout(() => { window.print(); setTimeout(() => setRecherche(''), 500) }, 150)
   }
 
   function handlePrint() {
@@ -175,8 +157,7 @@ export default function BulletinsPage() {
     <Card title="Génération des bulletins">
       <SelectorBar>
         <ClasseSelector niveau={niveau} div={div} compo={compo}
-          onNiveauChange={setNiveau} onDivChange={setDiv}
-          onCompoChange={setCompo} showCompo />
+          onNiveauChange={setNiveau} onDivChange={setDiv} onCompoChange={setCompo} showCompo />
         <button className="btn btn-or" onClick={handlePrint}>🖨️ Imprimer tous</button>
       </SelectorBar>
       <div className="empty"><div className="empty-icon">📄</div><p>Aucun élève dans cette classe.</p></div>
@@ -187,15 +168,8 @@ export default function BulletinsPage() {
     <>
       <style>{`
         * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-        .bulletin-wrap {
-          background: #fff; border: 1px solid var(--border);
-          border-radius: 12px; padding: 1.2rem; margin-bottom: 1rem;
-        }
-        .blt-header {
-          display: flex; justify-content: space-between; align-items: flex-start;
-          margin-bottom: 0.6rem; border-bottom: 2px solid var(--vert);
-          padding-bottom: 0.5rem; flex-wrap: wrap; gap: 0.5rem;
-        }
+        .bulletin-wrap { background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 1.2rem; margin-bottom: 1rem; }
+        .blt-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.6rem; border-bottom: 2px solid var(--vert); padding-bottom: 0.5rem; flex-wrap: wrap; gap: 0.5rem; }
         .blt-header-l, .blt-header-c, .blt-header-r { flex: 1; min-width: 110px; }
         .blt-header-c { text-align: center; }
         .blt-header-r { text-align: right; }
@@ -251,14 +225,10 @@ export default function BulletinsPage() {
       <Card title="Génération des bulletins">
         <SelectorBar>
           <ClasseSelector niveau={niveau} div={div} compo={compo}
-            onNiveauChange={setNiveau} onDivChange={setDiv}
-            onCompoChange={setCompo} showCompo />
+            onNiveauChange={setNiveau} onDivChange={setDiv} onCompoChange={setCompo} showCompo />
           <div style={{ position: 'relative' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <input
-                type="text"
-                placeholder="🔍 Rechercher un élève..."
-                value={recherche}
+              <input type="text" placeholder="🔍 Rechercher un élève..." value={recherche}
                 onChange={e => { setRecherche(e.target.value); setShowSuggestions(true) }}
                 onFocus={() => setShowSuggestions(true)}
                 onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
@@ -269,14 +239,9 @@ export default function BulletinsPage() {
               )}
             </div>
             {showSuggestions && recherche.trim() && elevesFiltres.length > 0 && (
-              <div style={{
-                position: 'absolute', top: '100%', left: 0, zIndex: 100, marginTop: 4,
-                background: '#fff', border: '1px solid var(--border)', borderRadius: '8px',
-                boxShadow: '0 4px 16px rgba(0,0,0,0.12)', minWidth: 220, overflow: 'hidden'
-              }}>
+              <div style={{ position: 'absolute', top: '100%', left: 0, zIndex: 100, marginTop: 4, background: '#fff', border: '1px solid var(--border)', borderRadius: '8px', boxShadow: '0 4px 16px rgba(0,0,0,0.12)', minWidth: 220, overflow: 'hidden' }}>
                 {elevesFiltres.map(e => (
-                  <div
-                    key={e.id}
+                  <div key={e.id}
                     style={{ padding: '8px 12px', cursor: 'pointer', fontSize: '0.88rem', borderBottom: '1px solid #f0f0f0' }}
                     onMouseDown={() => { setRecherche(e.nom); setShowSuggestions(false) }}
                     onMouseEnter={ev => (ev.currentTarget.style.background = '#f0faf5')}
@@ -345,7 +310,7 @@ function BulletinContent({
   onApprChange: (id: number, texte: string) => void
   isPrint?: boolean
 }) {
-  const nomMaitre = me?.nom || config?.nomMaitre || '—'
+  const nomProf = me?.nom || config?.nomMaitre || '—'
   const lignes = buildLignesBulletin(matieres, notes, e.id)
 
   return (
@@ -354,7 +319,7 @@ function BulletinContent({
         <div className="blt-header-l">
           <div style={{ fontFamily: 'var(--font-playfair)', fontSize: '0.85rem', color: 'var(--vert)', fontWeight: 700 }}>REPUBLIQUE DU SÉNÉGAL</div>
           <div style={{ fontSize: '0.68rem', color: '#555' }}>Un Peuple — Un But — Une Foi</div>
-          <div style={{ marginTop: 3, fontWeight: 700, fontSize: '0.82rem' }}>{config?.nomEcole || 'École Élémentaire'}</div>
+          <div style={{ marginTop: 3, fontWeight: 700, fontSize: '0.82rem' }}>{config?.nomEcole || 'Lycée'}</div>
           <div style={{ fontSize: '0.68rem', color: '#777' }}>{config?.localite || ''}</div>
         </div>
         <div className="blt-header-c">
@@ -377,8 +342,8 @@ function BulletinContent({
           <thead>
             <tr>
               <th style={{ textAlign: 'left' }}>Matière</th>
-              <th style={{ textAlign: 'center' }}>Note</th>
-              <th style={{ textAlign: 'center' }}>Barème</th>
+              <th style={{ textAlign: 'center' }}>Coef.</th>
+              <th style={{ textAlign: 'center' }}>Note /20</th>
             </tr>
           </thead>
           <tbody>
@@ -387,16 +352,16 @@ function BulletinContent({
                 return (
                   <tr key={`groupe-${idx}`} className="groupe-row">
                     <td>{ligne.nom}</td>
+                    <td style={{ textAlign: 'center' }}>—</td>
                     <td style={{ textAlign: 'center' }}><strong>{ligne.noteTotal !== null ? ligne.noteTotal : '—'}</strong></td>
-                    <td style={{ textAlign: 'center' }}>/{ligne.baremeTotal}</td>
                   </tr>
                 )
               } else {
                 return (
                   <tr key={ligne.matiere.id}>
                     <td>{ligne.matiere.nom}</td>
-                    <td style={{ textAlign: 'center' }}><strong>{ligne.note !== null ? ligne.note : '—'}</strong></td>
-                    <td style={{ textAlign: 'center' }}>/{ligne.matiere.bareme}</td>
+                    <td style={{ textAlign: 'center', fontSize: '0.75rem', color: 'var(--txt2)' }}>×{ligne.matiere.coef ?? 1}</td>
+                    <td style={{ textAlign: 'center' }}><strong>{ligne.note !== null ? ligne.note : '—'}</strong>/20</td>
                   </tr>
                 )
               }
@@ -409,8 +374,7 @@ function BulletinContent({
         <div className="blt-box" style={{ background: '#f0faf5' }}>
           <div style={{ fontSize: '0.6rem', color: '#555', textTransform: 'uppercase', letterSpacing: '0.4px' }}>Moyenne</div>
           <div className="blt-moyenne-val" style={{ fontFamily: 'var(--font-playfair)', fontSize: '1.6rem', color: 'var(--vert)', fontWeight: 700 }}>
-            {/* CORRECTION AFFICHAGE MOYENNE */}
-            {e.moyenne !== null ? `${e.moyenne.toFixed(2)}/10` : '—'}
+            {e.moyenne !== null ? `${e.moyenne.toFixed(2)}/20` : '—'}
           </div>
           <span className={`mention ${e.mention.cls}`} style={{ fontSize: '0.65rem' }}>{e.mention.label}</span>
         </div>
@@ -431,7 +395,7 @@ function BulletinContent({
             </div>
           ) : (
             <>
-              <label style={{ fontSize: '0.72rem' }}>Appréciation du maître</label>
+              <label style={{ fontSize: '0.72rem' }}>Appréciation du professeur</label>
               <textarea rows={2} defaultValue={apprText} placeholder="Commentaire sur l'élève..."
                 style={{ width: '100%', padding: 6, border: '1.5px solid var(--border)', borderRadius: 6, fontFamily: 'inherit', fontSize: '0.78rem', resize: 'none' }}
                 onChange={ev => onApprChange(e.id, ev.target.value)} />
@@ -446,26 +410,26 @@ function BulletinContent({
           <div className="blt-annuelle-grid">
             <div className="blt-annuelle-item">
               <div style={{ fontSize: '0.58rem', color: '#555', textTransform: 'uppercase' }}>Moy. C1</div>
-              <div style={{ fontWeight: 700, fontSize: '0.88rem', color: 'var(--vert)' }}>{bilan.moyenneCompo1 !== null ? `${bilan.moyenneCompo1.toFixed(2)}/10` : '—'}</div>
+              <div style={{ fontWeight: 700, fontSize: '0.88rem', color: 'var(--vert)' }}>{bilan.moyenneCompo1 !== null ? `${bilan.moyenneCompo1.toFixed(2)}/20` : '—'}</div>
             </div>
             <div className="blt-annuelle-item">
               <div style={{ fontSize: '0.58rem', color: '#555', textTransform: 'uppercase' }}>Moy. C2</div>
-              <div style={{ fontWeight: 700, fontSize: '0.88rem', color: 'var(--vert)' }}>{bilan.moyenneCompo2 !== null ? `${bilan.moyenneCompo2.toFixed(2)}/10` : '—'}</div>
+              <div style={{ fontWeight: 700, fontSize: '0.88rem', color: 'var(--vert)' }}>{bilan.moyenneCompo2 !== null ? `${bilan.moyenneCompo2.toFixed(2)}/20` : '—'}</div>
             </div>
             <div className="blt-annuelle-item">
               <div style={{ fontSize: '0.58rem', color: '#555', textTransform: 'uppercase' }}>Moy. C3</div>
-              <div style={{ fontWeight: 700, fontSize: '0.88rem', color: 'var(--vert)' }}>{bilan.moyenneCompo3 !== null ? `${bilan.moyenneCompo3.toFixed(2)}/10` : '—'}</div>
+              <div style={{ fontWeight: 700, fontSize: '0.88rem', color: 'var(--vert)' }}>{bilan.moyenneCompo3 !== null ? `${bilan.moyenneCompo3.toFixed(2)}/20` : '—'}</div>
             </div>
             <div className="blt-annuelle-item">
               <div style={{ fontSize: '0.58rem', color: '#555', textTransform: 'uppercase' }}>Moy. Annuelle</div>
-              <div style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--vert)', fontFamily: 'var(--font-playfair)' }}>{bilan.moyenneAnnuelle !== null ? `${bilan.moyenneAnnuelle.toFixed(2)}/10` : '—'}</div>
+              <div style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--vert)', fontFamily: 'var(--font-playfair)' }}>{bilan.moyenneAnnuelle !== null ? `${bilan.moyenneAnnuelle.toFixed(2)}/20` : '—'}</div>
             </div>
             <div className="blt-annuelle-item">
               <div style={{ fontSize: '0.58rem', color: '#555', textTransform: 'uppercase' }}>Rang annuel</div>
               <div style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--or)', fontFamily: 'var(--font-playfair)' }}>{bilan.rangAnnuel !== null ? `${bilan.rangAnnuel} / ${eleves.length}` : '—'}</div>
             </div>
             <div className={`blt-decision ${bilan.decision?.includes('Admis') ? 'decision-admis' : 'decision-redouble'}`}>
-              {bilan.decision === 'Admis(e) en classe supérieure' ? '✅' : '🔄'} {bilan.decision ?? '—'}
+              {bilan.decision?.includes('Admis') ? '✅' : '🔄'} {bilan.decision ?? '—'}
             </div>
           </div>
         </div>
@@ -473,15 +437,15 @@ function BulletinContent({
 
       <div className="blt-sigs">
         <div>
-          <div>Maître(sse) : <strong>{nomMaitre}</strong></div>
+          <div>Professeur principal : <strong>{nomProf}</strong></div>
           <div style={{ marginTop: '8mm', borderTop: '1px solid #999', paddingTop: 2, fontSize: '0.6rem' }}>Signature</div>
         </div>
         <div>
-          <div>Signature directeur</div>
+          <div>Signature du Proviseur</div>
           <div style={{ marginTop: '8mm', borderTop: '1px solid #999', paddingTop: 2, fontSize: '0.6rem' }}>Signature</div>
         </div>
         <div>
-          <div>Signature parents</div>
+          <div>Signature des parents</div>
           <div style={{ marginTop: '8mm', borderTop: '1px solid #999', paddingTop: 2, fontSize: '0.6rem' }}>Signature</div>
         </div>
       </div>

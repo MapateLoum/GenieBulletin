@@ -1,36 +1,53 @@
 // src/lib/utils.ts
 import type { Matiere, Note, EleveMoyenne, Eleve, Mention } from '@/types'
 
+/**
+ * Calcule la moyenne d'un élève pour une composition.
+ *
+ * Formule lycée (barème fixe /20) :
+ *   1. Moyenne par matière = somme des notes / nombre de notes   (→ /20)
+ *   2. Moyenne générale    = Σ(moy_matière × coef) / Σ(coef)    (→ /20)
+ *
+ * Si une matière n'a aucune note saisie, elle est ignorée dans le calcul.
+ */
 export function getMoyenne(
   eleveId: number,
   notes: Note[],
   matieres: Matiere[]
 ): number | null {
-  let totalPts    = 0
-  let totalBareme = 0
+  let totalPonderes = 0
+  let totalCoefs    = 0
 
   for (const m of matieres) {
-    const note = notes.find(
-      (n) => n.eleveId === eleveId && n.matiereId === m.id
+    // Toutes les notes de l'élève pour cette matière (une seule en général)
+    const notesMat = notes.filter(
+      (n) => n.eleveId === eleveId && n.matiereId === m.id && n.valeur !== null && n.valeur !== undefined
     )
-    if (note?.valeur !== undefined && note.valeur !== null) {
-      totalPts    += note.valeur
-      totalBareme += m.bareme
-    }
+    if (notesMat.length === 0) continue
+
+    // Moyenne de la matière sur 20
+    const somme = notesMat.reduce((s, n) => s + (n.valeur as number), 0)
+    const moyMat = somme / notesMat.length   // barème fixe 20, donc déjà sur 20
+
+    const coef = m.coef ?? 1
+    totalPonderes += moyMat * coef
+    totalCoefs    += coef
   }
 
-  if (totalBareme === 0) return null
-  // Moyenne = (somme des notes / somme des barèmes) × 10
-  return Math.round((totalPts / totalBareme) * 10 * 100) / 100
+  if (totalCoefs === 0) return null
+  return Math.round((totalPonderes / totalCoefs) * 100) / 100
 }
 
+/**
+ * Mentions calibrées sur 20.
+ */
 export function getMention(moy: number | null): Mention {
   if (moy === null) return { label: '—', cls: '' }
-  if (moy >= 9)  return { label: 'Excellent',  cls: 'mention-excellent' }
-  if (moy >= 8)  return { label: 'Très Bien',  cls: 'mention-tbi' }
-  if (moy >= 7)  return { label: 'Bien',        cls: 'mention-bi' }
-  if (moy >= 6)  return { label: 'Assez Bien',  cls: 'mention-ab' }
-  if (moy >= 5)  return { label: 'Passable',    cls: 'mention-pc' }
+  if (moy >= 18) return { label: 'Excellent',  cls: 'mention-excellent' }
+  if (moy >= 16) return { label: 'Très Bien',  cls: 'mention-tbi' }
+  if (moy >= 14) return { label: 'Bien',        cls: 'mention-bi' }
+  if (moy >= 12) return { label: 'Assez Bien',  cls: 'mention-ab' }
+  if (moy >= 10) return { label: 'Passable',    cls: 'mention-pc' }
   return { label: 'Insuffisant', cls: 'mention-insuf' }
 }
 
@@ -58,9 +75,9 @@ export function computeElevesAvecRangs(
       e.rang = 1
     } else {
       if (e.moyenne === avecNote[i - 1].moyenne) {
-        e.rang = avecNote[i - 1].rang  // ex-æquo, même rang
+        e.rang = avecNote[i - 1].rang
       } else {
-        rangActuel++                   // rang suivant sans saut
+        rangActuel++
         e.rang = rangActuel
       }
     }
@@ -69,7 +86,8 @@ export function computeElevesAvecRangs(
   return avecMoy.map((e) => ({
     ...e,
     mention: getMention(e.moyenne),
-    aMoyenne: e.moyenne !== null ? e.moyenne >= 5 : false,
+    // Moyenne de passage : 10/20
+    aMoyenne: e.moyenne !== null ? e.moyenne >= 10 : false,
   }))
 }
 
@@ -77,8 +95,8 @@ export function clsx(...classes: (string | undefined | null | false)[]): string 
   return classes.filter(Boolean).join(' ')
 }
 
-export const NIVEAUX = ['CI', 'CP', 'CE1', 'CE2', 'CM1', 'CM2'] as const
-export const DIVISIONS = ['A', 'B'] as const
+export const NIVEAUX = ['6ème', '5ème', '4ème', '3ème', '2nde', '1ère', 'Tle'] as const
+export const DIVISIONS = ['A', 'B', 'C', 'D'] as const
 export const COMPOS = [1, 2, 3] as const
 export const COMPO_LABELS: Record<number, string> = {
   1: '1ère Composition',

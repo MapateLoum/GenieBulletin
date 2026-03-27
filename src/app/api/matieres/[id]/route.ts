@@ -51,8 +51,10 @@ export async function PUT(
     const body = await req.json()
 
     const updateData: Record<string, any> = {}
-    if (body.nom    !== undefined) updateData.nom    = body.nom
-    if (body.bareme !== undefined) updateData.bareme = body.bareme
+    if (body.nom  !== undefined) updateData.nom  = body.nom
+    if (body.coef !== undefined) updateData.coef = body.coef
+    // bareme toujours 20, pas modifiable
+    updateData.bareme = 20
 
     const matiere = await prisma.matiere.update({ where: { id }, data: updateData })
     return NextResponse.json(matiere)
