@@ -7,6 +7,16 @@ import { Card, SelectorBar } from '@/components/ui/Card'
 import ClasseSelector from '@/components/ui/ClasseSelector'
 import type { Niveau, Division, Eleve } from '@/types'
 
+// ── Normalisation pour comparaison souple ─────────────────────
+function normalizeHeader(s: string): string {
+  return String(s ?? '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // supprime accents
+    .replace(/\s+/g, '')             // supprime espaces
+    .trim()
+}
+
 // ── Modale d'édition ──────────────────────────────────────────
 function EditModal({
   eleve,
@@ -50,14 +60,11 @@ function EditModal({
         <h3 style={{ marginBottom: '1.25rem', fontSize: '1.1rem' }}>
           ✏️ Modifier l'élève
         </h3>
-
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <div>
             <label>Prénom et Nom</label>
             <input
-              type="text"
-              value={nom}
-              autoFocus
+              type="text" value={nom} autoFocus
               onChange={e => setNom(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleSubmit()}
             />
@@ -70,11 +77,8 @@ function EditModal({
             </select>
           </div>
         </div>
-
         <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.5rem', justifyContent: 'flex-end' }}>
-          <button className="btn btn-secondary" onClick={onClose}>
-            Annuler
-          </button>
+          <button className="btn btn-secondary" onClick={onClose}>Annuler</button>
           <button className="btn btn-primary" onClick={handleSubmit} disabled={isPending}>
             {isPending ? '...' : '💾 Enregistrer'}
           </button>
@@ -157,7 +161,7 @@ export default function ElevesPage() {
     onError: () => toast.error('Erreur lors de la suppression'),
   })
 
-  // ── Import Excel ─────────────────────────────────────────────
+  // ── Import Excel intelligent (recherche par en-têtes) ─────────
   async function handleImportExcel(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
@@ -167,26 +171,101 @@ export default function ElevesPage() {
     const ws = wb.Sheets[wb.SheetNames[0]]
     const rows = XLSX.utils.sheet_to_json<any[]>(ws, { header: 1 }) as any[][]
 
+    if (rows.length < 2) { toast.error('Fichier vide'); return }
+
+    // ── 1. Lire et normaliser les en-têtes ────────────────────
+    const headers = rows[0].map((h: any) => normalizeHeader(String(h ?? '')))
+
+    // ── 2. Trouver les colonnes prenom, nom, sexe ─────────────
+    // Prenom : contient "prenom" (avec ou sans s)
+    const colPrenom = headers.findIndex(h =>
+      h.includes('prenom') || h.includes('prenoms')
+    )
+
+    // Nom : contient "nom" mais PAS "prenom" (pour éviter confusion)
+    const colNom = headers.findIndex(h =>
+      (h === 'nom' || h === 'noms' || h.startsWith('nom')) && !h.includes('prenom')
+    )
+
+    // Sexe : contient "sexe"
+    const colSexe = headers.findIndex(h => h.includes('sexe'))
+
+    // ── 3. Fallback : si pas d'en-têtes trouvés, ancienne logique (col B=1, C=2, D=3)
+    const useFallback = colPrenom === -1 && colNom === -1
+
+    if (useFallback) {
+      // Ancienne logique : col 1=Prénom, 2=Nom, 3=Sexe
+      const elevesToImport = rows.slice(1)
+        .filter(r => r[1] || r[2])
+        .map(r => {
+          const sexeRaw = String(r[3] ?? 'F').trim().toUpperCase()
+          const sexe: 'G' | 'F' = (sexeRaw === 'M' || sexeRaw === 'G') ? 'G' : 'F'
+          return {
+            nom:  `${String(r[1] ?? '').trim()} ${String(r[2] ?? '').trim()}`.trim(),
+            sexe,
+            niveau,
+            div,
+          }
+        })
+        .filter(e => e.nom)
+
+      if (!elevesToImport.length) { toast.error('Aucun élève trouvé dans le fichier'); return }
+
+      const toastId = toast.loading(`Import de ${elevesToImport.length} élèves...`)
+      try {
+        const res = await fetch('/api/eleves/import', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ eleves: elevesToImport }),
+        })
+        if (!res.ok) throw new Error()
+        await qc.invalidateQueries({ queryKey: ['eleves', niveau, div] })
+        toast.success(`${elevesToImport.length} élèves importés`, { id: toastId })
+      } catch {
+        toast.error("Erreur lors de l'import", { id: toastId })
+      }
+      e.target.value = ''
+      return
+    }
+
+    // ── 4. Import avec en-têtes détectés ──────────────────────
     const elevesToImport = rows.slice(1)
-      .filter(r => r[1] || r[2])
+      .filter(r => {
+        const prenom = colPrenom !== -1 ? String(r[colPrenom] ?? '').trim() : ''
+        const nomVal = colNom    !== -1 ? String(r[colNom]    ?? '').trim() : ''
+        return prenom || nomVal
+      })
       .map(r => {
-        const sexeRaw = String(r[3] ?? 'F').trim().toUpperCase()
+        const prenom = colPrenom !== -1 ? String(r[colPrenom] ?? '').trim() : ''
+        const nomVal = colNom    !== -1 ? String(r[colNom]    ?? '').trim() : ''
+
+        // Construire nom complet : Prénom Nom
+        const nomComplet = [prenom, nomVal].filter(Boolean).join(' ').trim()
+
+        // Sexe
+        const sexeRaw = colSexe !== -1
+          ? String(r[colSexe] ?? 'F').trim().toUpperCase()
+          : 'F'
         const sexe: 'G' | 'F' = (sexeRaw === 'M' || sexeRaw === 'G') ? 'G' : 'F'
-        return {
-          nom:  `${String(r[1] ?? '').trim()} ${String(r[2] ?? '').trim()}`.trim(),
-          sexe,
-          niveau,
-          div,
-        }
+
+        return { nom: nomComplet, sexe, niveau, div }
       })
       .filter(e => e.nom)
 
     if (!elevesToImport.length) {
       toast.error('Aucun élève trouvé dans le fichier')
+      e.target.value = ''
       return
     }
 
-    const toastId = toast.loading(`Import de ${elevesToImport.length} élèves...`)
+    // ── 5. Résumé des colonnes détectées (aide au debug) ──────
+    const detected = [
+      colPrenom !== -1 ? `Prénom → col ${colPrenom + 1}` : null,
+      colNom    !== -1 ? `Nom → col ${colNom + 1}`       : null,
+      colSexe   !== -1 ? `Sexe → col ${colSexe + 1}`     : null,
+    ].filter(Boolean).join(', ')
+
+    const toastId = toast.loading(`Import de ${elevesToImport.length} élèves... (${detected})`)
     try {
       const res = await fetch('/api/eleves/import', {
         method: 'POST',
@@ -270,16 +349,11 @@ export default function ElevesPage() {
               toast((t) => (
                 <span>
                   Supprimer <strong>tous les élèves</strong> de {niveau}{div} ?{' '}
-                  <button
-                    className="btn btn-danger btn-sm"
-                    onClick={() => { deleteAll.mutate(); toast.dismiss(t.id) }}
-                  >
+                  <button className="btn btn-danger btn-sm"
+                    onClick={() => { deleteAll.mutate(); toast.dismiss(t.id) }}>
                     Confirmer
                   </button>{' '}
-                  <button
-                    className="btn btn-secondary btn-sm"
-                    onClick={() => toast.dismiss(t.id)}
-                  >
+                  <button className="btn btn-secondary btn-sm" onClick={() => toast.dismiss(t.id)}>
                     Annuler
                   </button>
                 </span>
@@ -295,9 +369,7 @@ export default function ElevesPage() {
           <div>
             <label>Prénom et Nom</label>
             <input
-              type="text"
-              value={nom}
-              placeholder="Ex : Fatou Diallo"
+              type="text" value={nom} placeholder="Ex : Fatou Diallo"
               onChange={e => setNom(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleAdd()}
             />
@@ -348,10 +420,7 @@ export default function ElevesPage() {
                       </td>
                       <td className="no-print">
                         <div style={{ display: 'flex', gap: '0.5rem' }}>
-                          <button
-                            className="btn btn-secondary btn-sm"
-                            onClick={() => setEditEleve(e)}
-                          >
+                          <button className="btn btn-secondary btn-sm" onClick={() => setEditEleve(e)}>
                             ✏️ Modifier
                           </button>
                           <button
@@ -360,16 +429,11 @@ export default function ElevesPage() {
                               toast((t) => (
                                 <span>
                                   Retirer <strong>{e.nom}</strong> ?{' '}
-                                  <button
-                                    className="btn btn-danger btn-sm"
-                                    onClick={() => { deleteEleve.mutate(e.id); toast.dismiss(t.id) }}
-                                  >
+                                  <button className="btn btn-danger btn-sm"
+                                    onClick={() => { deleteEleve.mutate(e.id); toast.dismiss(t.id) }}>
                                     Confirmer
                                   </button>{' '}
-                                  <button
-                                    className="btn btn-secondary btn-sm"
-                                    onClick={() => toast.dismiss(t.id)}
-                                  >
+                                  <button className="btn btn-secondary btn-sm" onClick={() => toast.dismiss(t.id)}>
                                     Annuler
                                   </button>
                                 </span>
