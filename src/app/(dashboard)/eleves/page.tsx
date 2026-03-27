@@ -173,30 +173,27 @@ export default function ElevesPage() {
 
     if (rows.length < 2) { toast.error('Fichier vide'); return }
 
-    // ── 1. Lire et normaliser les en-têtes ────────────────────
-    const headers = rows[0].map((h: any) => normalizeHeader(String(h ?? '')))
+    // ── 1. Lire et normaliser les en-têtes (Array.from pour gérer les tableaux sparse) ──
+    const rawHeaders = rows[0] as any[]
+    const headers = Array.from({ length: rawHeaders.length }, (_, i) =>
+      normalizeHeader(String(rawHeaders[i] ?? ''))
+    )
 
     // ── 2. Trouver les colonnes prenom, nom, sexe ─────────────
-    // Prenom : contient "prenom" (avec ou sans s)
     const colPrenom = headers.findIndex(h =>
       h.includes('prenom') || h.includes('prenoms')
     )
-
-    // Nom : contient "nom" mais PAS "prenom" (pour éviter confusion)
     const colNom = headers.findIndex(h =>
       (h === 'nom' || h === 'noms' || h.startsWith('nom')) && !h.includes('prenom')
     )
-
-    // Sexe : contient "sexe"
     const colSexe = headers.findIndex(h => h.includes('sexe'))
 
     // ── 3. Fallback : si pas d'en-têtes trouvés, ancienne logique (col B=1, C=2, D=3)
     const useFallback = colPrenom === -1 && colNom === -1
 
     if (useFallback) {
-      // Ancienne logique : col 1=Prénom, 2=Nom, 3=Sexe
       const elevesToImport = rows.slice(1)
-        .filter(r => r[1] || r[2])
+        .filter(r => Array.isArray(r) && (r[1] != null || r[2] != null))
         .map(r => {
           const sexeRaw = String(r[3] ?? 'F').trim().toUpperCase()
           const sexe: 'G' | 'F' = (sexeRaw === 'M' || sexeRaw === 'G') ? 'G' : 'F'
@@ -231,6 +228,7 @@ export default function ElevesPage() {
     // ── 4. Import avec en-têtes détectés ──────────────────────
     const elevesToImport = rows.slice(1)
       .filter(r => {
+        if (!Array.isArray(r)) return false
         const prenom = colPrenom !== -1 ? String(r[colPrenom] ?? '').trim() : ''
         const nomVal = colNom    !== -1 ? String(r[colNom]    ?? '').trim() : ''
         return prenom || nomVal
@@ -238,16 +236,11 @@ export default function ElevesPage() {
       .map(r => {
         const prenom = colPrenom !== -1 ? String(r[colPrenom] ?? '').trim() : ''
         const nomVal = colNom    !== -1 ? String(r[colNom]    ?? '').trim() : ''
-
-        // Construire nom complet : Prénom Nom
         const nomComplet = [prenom, nomVal].filter(Boolean).join(' ').trim()
-
-        // Sexe
         const sexeRaw = colSexe !== -1
           ? String(r[colSexe] ?? 'F').trim().toUpperCase()
           : 'F'
         const sexe: 'G' | 'F' = (sexeRaw === 'M' || sexeRaw === 'G') ? 'G' : 'F'
-
         return { nom: nomComplet, sexe, niveau, div }
       })
       .filter(e => e.nom)
@@ -258,7 +251,7 @@ export default function ElevesPage() {
       return
     }
 
-    // ── 5. Résumé des colonnes détectées (aide au debug) ──────
+    // ── 5. Résumé des colonnes détectées ──────────────────────
     const detected = [
       colPrenom !== -1 ? `Prénom → col ${colPrenom + 1}` : null,
       colNom    !== -1 ? `Nom → col ${colNom + 1}`       : null,

@@ -39,6 +39,16 @@ function buildGroupes(matieres: Matiere[]): GroupeMatiere[] {
   })
 }
 
+// ── Normalisation pour comparaison souple ─────────────────────
+function normalizeStr(s: string): string {
+  return String(s ?? '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
 export default function NotesPage() {
   const qc = useQueryClient()
   const [niveau, setNiveau] = useState<Niveau>('6ème')
@@ -137,31 +147,64 @@ export default function NotesPage() {
 
     if (rows.length < 2) { toast.error('Fichier vide'); return }
 
-    const headers = rows[0].map((h: any) =>
-      String(h ?? '').replace(/\r?\n/g, ' ').replace(/\s+/g, ' ').trim()
+    // ── 1. Lire et normaliser les en-têtes (Array.from pour tableaux sparse) ──
+    const rawHeaders = rows[0] as any[]
+    const headers = Array.from({ length: rawHeaders.length }, (_, i) =>
+      String(rawHeaders[i] ?? '').replace(/\r?\n/g, ' ').replace(/\s+/g, ' ').trim()
     )
-    const matiereHeaders = headers.slice(4)
+    const headersNorm = headers.map(h => normalizeStr(h))
 
-    if (!matiereHeaders.length) { toast.error('Aucune matière trouvée'); return }
+    // ── 2. Trouver colonnes prénom et nom par en-tête ─────────
+    const colPrenom = headersNorm.findIndex(h =>
+      h.includes('prenom') || h.includes('prenoms')
+    )
+    const colNom = headersNorm.findIndex(h =>
+      (h === 'nom' || h.startsWith('nom')) && !h.includes('prenom')
+    )
 
+    if (colPrenom === -1 && colNom === -1) {
+      toast.error('Colonnes "Prénoms" et "Nom" introuvables dans le fichier')
+      e.target.value = ''
+      return
+    }
+
+    // ── 3. Pour chaque matière en BDD, trouver sa colonne dans l'Excel ──
+    // On cherche l'en-tête Excel qui correspond au nom de la matière
+    const matiereColMap: { matiere: Matiere; colIndex: number }[] = []
+    for (const mat of matieres) {
+      const matNorm = normalizeStr(mat.nom)
+      const colIndex = headersNorm.findIndex(h => h && normalizeStr(h) === matNorm)
+      if (colIndex !== -1) {
+        matiereColMap.push({ matiere: mat, colIndex })
+      }
+    }
+
+    if (!matiereColMap.length) {
+      toast.error('Aucune matière du fichier ne correspond aux matières de cette classe')
+      e.target.value = ''
+      return
+    }
+
+    // ── 4. Construire les lignes à importer ───────────────────
     const dataRows = rows.slice(1)
-      .filter(r => r[1] || r[2])
+      .filter(r => Array.isArray(r) && (r[colPrenom] != null || r[colNom] != null))
       .map(r => {
+        const prenom = colPrenom !== -1 ? String(r[colPrenom] ?? '').trim() : ''
+        const nom    = colNom    !== -1 ? String(r[colNom]    ?? '').trim() : ''
+
         const notes: Record<string, number | null> = {}
-        matiereHeaders.forEach((nom, i) => {
-          if (!nom) return
-          const v = r[4 + i]
-          notes[nom] = (v !== undefined && v !== '') ? parseFloat(v) : null
-        })
-        return {
-          prenom: String(r[1] ?? '').trim(),
-          nom:    String(r[2] ?? '').trim(),
-          notes,
+        for (const { matiere, colIndex } of matiereColMap) {
+          const v = r[colIndex]
+          notes[matiere.nom] = (v !== undefined && v !== '' && v !== null)
+            ? parseFloat(String(v))
+            : null
         }
+
+        return { prenom, nom, notes }
       })
       .filter(r => r.prenom || r.nom)
 
-    if (!dataRows.length) { toast.error('Aucune donnée valide'); return }
+    if (!dataRows.length) { toast.error('Aucune donnée valide'); e.target.value = ''; return }
 
     const toastId = toast.loading('Import en cours...')
     try {
@@ -175,7 +218,7 @@ export default function NotesPage() {
       await qc.invalidateQueries({ queryKey: ['notes', niveau, div, compo] })
       const msg = result.elevesNonTrouves?.length
         ? `Import terminé ! (${result.elevesNonTrouves.length} élève(s) non trouvé(s))`
-        : 'Import terminé !'
+        : `Import terminé ! (${matiereColMap.length} matière(s) importée(s))`
       toast.success(msg, { id: toastId })
     } catch {
       toast.error("Erreur lors de l'import", { id: toastId })
@@ -318,7 +361,7 @@ export default function NotesPage() {
     th:first-child, th:nth-child(2), th:nth-child(3) { text-align: left; }
     td { padding: 4px 6px; border: 1px solid #ddd; text-align: center; vertical-align: middle; }
     td:first-child, td:nth-child(2), td:nth-child(3) { text-align: left; }
-    tr:nth-child(even) { background: #f8faf8 important; }
+    tr:nth-child(even) { background: #f8faf8 !important; }
     .footer { margin-top: 4rem; display: flex; justify-content: space-between;
               font-size: 0.72rem; color: #777; padding-top: 0.8rem; }
   </style>
