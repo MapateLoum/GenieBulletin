@@ -27,7 +27,8 @@ type MatiereStat = {
   moyenneClasse: number | null
   max: number | null
   min: number | null
-  pctReussite: number | null
+  compose:    { G: number; F: number; T: number }
+  avecMoyenne: { G: number; F: number; T: number }
 }
 
 type GroupeStat = {
@@ -36,7 +37,8 @@ type GroupeStat = {
   moyenneClasse: number | null
   max: number | null
   min: number | null
-  pctReussite: number | null
+  compose:    { G: number; F: number; T: number }
+  avecMoyenne: { G: number; F: number; T: number }
 }
 
 function buildGroupeStats(matiereStats: MatiereStat[]): { simples: MatiereStat[]; groupes: GroupeStat[] } {
@@ -65,15 +67,23 @@ function buildGroupeStats(matiereStats: MatiereStat[]): { simples: MatiereStat[]
       : null
     const maxVals = membres.map(m => m.max).filter(v => v !== null) as number[]
     const minVals = membres.map(m => m.min).filter(v => v !== null) as number[]
-    const avecPct = membres.filter((m: any) => m.pctReussite !== null)
-    const pctReussite = avecPct.length
-      ? Math.round(avecPct.reduce((s: number, m: any) => s + m.pctReussite!, 0) / avecPct.length)
-      : null
+
+    // Agréger compose et avecMoyenne pour le groupe
+    const compose = membres.reduce(
+      (acc, m) => ({ G: acc.G + m.compose.G, F: acc.F + m.compose.F, T: acc.T + m.compose.T }),
+      { G: 0, F: 0, T: 0 }
+    )
+    const avecMoyenne = membres.reduce(
+      (acc, m) => ({ G: acc.G + m.avecMoyenne.G, F: acc.F + m.avecMoyenne.F, T: acc.T + m.avecMoyenne.T }),
+      { G: 0, F: 0, T: 0 }
+    )
+
     groupes.push({
       nom, baremeTotal, moyenneClasse,
       max: maxVals.length ? Math.max(...maxVals) : null,
       min: minVals.length ? Math.min(...minVals) : null,
-      pctReussite,
+      compose,
+      avecMoyenne,
     })
   })
 
@@ -162,6 +172,39 @@ function buildBilanEleveStats(eleves: BilanAnnuel[]) {
   }
 }
 
+// ── CSS impression ──────────────────────────────────────────────────────────
+const printCSS = `
+  * { box-sizing:border-box; margin:0; padding:0; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  body { font-family:Arial,sans-serif; padding:1.5rem; color:#1a1a1a; font-size:0.85rem; }
+  .header { display:flex; justify-content:space-between; align-items:flex-start; border-bottom:2px solid #1a6b3a; padding-bottom:1rem; margin-bottom:1.2rem; }
+  .titre { font-size:1.2rem; font-weight:700; color:#1a6b3a; text-align:center; }
+  .sous-titre { font-size:0.82rem; color:#555; text-align:center; margin-top:3px; }
+  .stats-grid { display:grid; gap:8px; margin-bottom:0.8rem; }
+  .stat-box { border-radius:8px; padding:8px; text-align:center; color:#fff; }
+  .stat-val { font-size:1.3rem; font-weight:700; }
+  .stat-lbl { font-size:0.65rem; opacity:0.9; margin-top:2px; }
+  .taux { background:#f0faf5; border:1px solid #c3e6cb; border-radius:6px; padding:8px 14px; margin-bottom:1rem; font-size:0.85rem; }
+  .taux strong { color:#1a6b3a; font-size:1rem; }
+  h3 { color:#1a6b3a; margin:1rem 0 0.6rem; font-size:0.9rem; border-left:4px solid #c8972a; padding-left:8px; page-break-after:avoid; }
+  table { width:100%; border-collapse:collapse; font-size:0.8rem; page-break-inside:auto; }
+  thead { display:table-header-group; }
+  tbody { display:table-row-group; }
+  tr { page-break-inside:avoid; }
+  th { background:#1a6b3a !important; color:#fff !important; padding:7px 8px; text-align:center; font-size:0.72rem; text-transform:uppercase; }
+  th.left { text-align:left; }
+  td { padding:5px 8px; border-bottom:1px solid #eee; }
+  .two-col { display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-top:0.5rem; }
+  .footer { margin-top:1.5rem; display:flex; justify-content:space-between; font-size:0.78rem; color:#777; border-top:1px solid #ddd; padding-top:0.8rem; page-break-inside:avoid; }
+  @media print {
+    @page { margin:1cm; }
+    body { padding:0; }
+    table { page-break-inside:auto; }
+    thead { display:table-header-group; }
+    tr { page-break-inside:avoid; page-break-after:auto; }
+    .footer { page-break-inside:avoid; }
+  }
+`
+
 export default function SynthesePage() {
   const [niveau, setNiveau] = useState<Niveau>('CI')
   const [div, setDiv] = useState<Division>('A')
@@ -200,37 +243,7 @@ export default function SynthesePage() {
     setTriggered(false)
   }
 
-  const printCSS = `
-    * { box-sizing:border-box; margin:0; padding:0; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
-    body { font-family:Arial,sans-serif; padding:1.5rem; color:#1a1a1a; font-size:0.85rem; }
-    .header { display:flex; justify-content:space-between; align-items:flex-start; border-bottom:2px solid #1a6b3a; padding-bottom:1rem; margin-bottom:1.2rem; }
-    .titre { font-size:1.2rem; font-weight:700; color:#1a6b3a; text-align:center; }
-    .sous-titre { font-size:0.82rem; color:#555; text-align:center; margin-top:3px; }
-    .stats-grid { display:grid; gap:8px; margin-bottom:0.8rem; }
-    .stat-box { border-radius:8px; padding:8px; text-align:center; color:#fff; }
-    .stat-val { font-size:1.3rem; font-weight:700; }
-    .stat-lbl { font-size:0.65rem; opacity:0.9; margin-top:2px; }
-    .taux { background:#f0faf5; border:1px solid #c3e6cb; border-radius:6px; padding:8px 14px; margin-bottom:1rem; font-size:0.85rem; }
-    .taux strong { color:#1a6b3a; font-size:1rem; }
-    h3 { color:#1a6b3a; margin:1rem 0 0.6rem; font-size:0.9rem; border-left:4px solid #c8972a; padding-left:8px; page-break-after:avoid; }
-    table { width:100%; border-collapse:collapse; font-size:0.8rem; page-break-inside:auto; }
-    thead { display:table-header-group; }
-    tbody { display:table-row-group; }
-    tr { page-break-inside:avoid; }
-    th { background:#1a6b3a !important; color:#fff !important; padding:7px 8px; text-align:left; font-size:0.72rem; text-transform:uppercase; }
-    td { padding:5px 8px; border-bottom:1px solid #eee; }
-    .two-col { display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-top:0.5rem; }
-    .footer { margin-top:1.5rem; display:flex; justify-content:space-between; font-size:0.78rem; color:#777; border-top:1px solid #ddd; padding-top:0.8rem; page-break-inside:avoid; }
-    @media print {
-      @page { margin:1cm; }
-      body { padding:0; }
-      table { page-break-inside:auto; }
-      thead { display:table-header-group; }
-      tr { page-break-inside:avoid; page-break-after:auto; }
-      .footer { page-break-inside:avoid; }
-    }
-  `
-
+  // ── Impression composition ────────────────────────────────────────────────
   function handlePrint() {
     if (!data || !data.stats) return
 
@@ -251,7 +264,7 @@ export default function SynthesePage() {
       const rankBg = e.rang === 1 ? '#fffbe6' : e.rang === 2 ? '#f5f5f5' : e.rang === 3 ? '#fff5ec' : '#fff'
       const mentionBg = mentionColors[e.mention?.cls ?? ''] ?? 'transparent'
       return `<tr style="background:${rankBg}">
-        <td style="font-weight:700;color:#c8972a">${e.rang ? `#${e.rang}` : '—'}</td>
+        <td style="font-weight:700;color:#c8972a;text-align:center">${e.rang ? `#${e.rang}` : '—'}</td>
         <td><strong>${e.nom}</strong></td>
         <td style="text-align:center">${e.sexe}</td>
         <td style="text-align:center"><strong>${e.moyenne !== null ? `${e.moyenne}/10` : '—'}</strong></td>
@@ -267,22 +280,32 @@ export default function SynthesePage() {
     }).join('')
 
     const { simples, groupes } = buildGroupeStats(data.matiereStats)
-    const groupeRowsHTML = groupes.map(g => `
-      <tr style="background:#f0faf5">
-        <td><strong>${g.nom}</strong></td>
-        <td style="text-align:center">${g.moyenneClasse ?? '—'}</td>
-        <td style="text-align:center">${g.max ?? '—'}</td>
-        <td style="text-align:center">${g.min ?? '—'}</td>
-        <td style="text-align:center;font-weight:700;color:${g.pctReussite !== null && g.pctReussite >= 50 ? '#1a6b3a' : '#c0392b'}">${g.pctReussite !== null ? g.pctReussite + '%' : '—'}</td>
-      </tr>`).join('')
-    const simpleRowsHTML = simples.map((ms: MatiereStat) => `
+
+    // Tableau matières format G/F/T
+    const matiereHeader = `
       <tr>
-        <td><strong>${ms.matiere.nom}</strong></td>
-        <td style="text-align:center">${ms.moyenneClasse ?? '—'}</td>
-        <td style="text-align:center">${ms.max ?? '—'}</td>
-        <td style="text-align:center">${ms.min ?? '—'}</td>
-        <td style="text-align:center;font-weight:700;color:${ms.pctReussite !== null && ms.pctReussite >= 50 ? '#1a6b3a' : '#c0392b'}">${ms.pctReussite !== null ? ms.pctReussite + '%' : '—'}</td>
-      </tr>`).join('')
+        <th class="left" rowspan="2">Matière</th>
+        <th colspan="3">Ont composé</th>
+        <th colspan="3">Ont obtenu la moyenne</th>
+      </tr>
+      <tr>
+        <th>G</th><th>F</th><th>T</th>
+        <th>G</th><th>F</th><th>T</th>
+      </tr>`
+
+    const matiereRow = (nom: string, compose: {G:number;F:number;T:number}, avecMoyenne: {G:number;F:number;T:number}, bg = '#fff', suffix = '') => `
+      <tr style="background:${bg}">
+        <td><strong>${nom}</strong>${suffix}</td>
+        <td style="text-align:center">${compose.G}</td>
+        <td style="text-align:center">${compose.F}</td>
+        <td style="text-align:center"><strong>${compose.T}</strong></td>
+        <td style="text-align:center">${avecMoyenne.G}</td>
+        <td style="text-align:center">${avecMoyenne.F}</td>
+        <td style="text-align:center"><strong>${avecMoyenne.T}</strong></td>
+      </tr>`
+
+    const groupeRowsHTML = groupes.map(g => matiereRow(g.nom, g.compose, g.avecMoyenne, '#f0faf5', ' <span style="font-size:0.7rem;color:#1a6b3a">(groupe)</span>')).join('')
+    const simpleRowsHTML = simples.map((ms: MatiereStat) => matiereRow(ms.matiere.nom, ms.compose, ms.avecMoyenne)).join('')
 
     const g  = sorted.filter(e => e.sexe === 'G')
     const f  = sorted.filter(e => e.sexe === 'F')
@@ -306,7 +329,6 @@ export default function SynthesePage() {
       return `<tr>
         <td><span style="background:${bg};padding:2px 8px;border-radius:10px;font-size:0.78rem;font-weight:700">${lbl}</span></td>
         <td style="text-align:center;font-weight:700">${count}</td>
-        <td style="text-align:center">${sorted.length > 0 ? Math.round((count / sorted.length) * 100) : 0}%</td>
       </tr>`
     }).join('')
 
@@ -328,22 +350,25 @@ export default function SynthesePage() {
     <div class="stat-box" style="background:linear-gradient(135deg,#5d4e75,#8e6ba6)"><div class="stat-val">${data.stats.minMoyenne ?? '—'}</div><div class="stat-lbl">Note la plus basse</div></div>
   </div>
   <div class="taux">Taux de réussite : <strong>${avecMoyennePct}%</strong> — ${data.stats.avecMoyenne} élève(s) sur ${data.stats.effectif} ont obtenu la moyenne</div>
+
   <h3>🏆 Classement des élèves</h3>
   <table>
-    <thead><tr><th>Rang</th><th>Nom et Prénom</th><th style="text-align:center">Sexe</th><th style="text-align:center">Moy./10</th><th style="text-align:center">Mention</th><th style="text-align:center">A la moyenne</th></tr></thead>
+    <thead><tr><th>Rang</th><th class="left">Nom et Prénom</th><th>Sexe</th><th>Moy./10</th><th>Mention</th><th>A la moyenne</th></tr></thead>
     <tbody>${rowsHTML}</tbody>
   </table>
+
   <h3>📚 Statistiques par matière</h3>
   <table>
-    <thead><tr><th>Matière</th><th style="text-align:center">Moy. classe</th><th style="text-align:center">Max</th><th style="text-align:center">Min</th><th style="text-align:center">% Réussite</th></tr></thead>
+    <thead>${matiereHeader}</thead>
     <tbody>${groupeRowsHTML}${simpleRowsHTML}</tbody>
   </table>
+
   <h3>👥 Statistiques par élève</h3>
   <div class="two-col">
     <table>
       <thead>
-        <tr><th colspan="5">Répartition Garçons / Filles</th></tr>
-        <tr><th>Sexe</th><th style="text-align:center">Effectif</th><th style="text-align:center">Avec moy.</th><th style="text-align:center">Sans moy.</th><th style="text-align:center">Taux</th></tr>
+        <tr><th colspan="5" class="left">Répartition Garçons / Filles</th></tr>
+        <tr><th class="left">Sexe</th><th>Effectif</th><th>Avec moy.</th><th>Sans moy.</th><th>Taux</th></tr>
       </thead>
       <tbody>
         <tr><td>👦 Garçons</td><td style="text-align:center">${g.length}</td><td style="text-align:center;color:#155724;font-weight:700">${gAvec}</td><td style="text-align:center;color:#721c24;font-weight:700">${gSans}</td><td style="text-align:center;font-weight:700;color:${gTaux>=50?'#1a6b3a':'#c0392b'}">${gTaux}%</td></tr>
@@ -353,8 +378,8 @@ export default function SynthesePage() {
     </table>
     <table>
       <thead>
-        <tr><th colspan="3">Répartition par mention</th></tr>
-        <tr><th>Mention</th><th style="text-align:center">Nb élèves</th><th style="text-align:center">%</th></tr>
+        <tr><th colspan="2" class="left">Répartition par mention</th></tr>
+        <tr><th class="left">Mention</th><th>Nb élèves</th></tr>
       </thead>
       <tbody>${mentionPrintRows}</tbody>
     </table>
@@ -366,6 +391,7 @@ export default function SynthesePage() {
     w.document.write(html); w.document.close(); setTimeout(() => w.print(), 400)
   }
 
+  // ── Impression bilan annuel ───────────────────────────────────────────────
   function handlePrintAnnuel() {
     if (!bilanAnnuel) return
 
@@ -382,7 +408,7 @@ export default function SynthesePage() {
       const decisionBg = e.decision?.includes('Admis') ? '#d4edda' : e.decision === 'Redouble' ? '#f8d7da' : '#fff'
       const decisionColor = e.decision?.includes('Admis') ? '#155724' : e.decision === 'Redouble' ? '#721c24' : '#333'
       return `<tr>
-        <td style="font-weight:700;color:#c8972a">${e.rangAnnuel ? `#${e.rangAnnuel}` : '—'}</td>
+        <td style="font-weight:700;color:#c8972a;text-align:center">${e.rangAnnuel ? `#${e.rangAnnuel}` : '—'}</td>
         <td><strong>${e.nom}</strong></td>
         <td style="text-align:center">${e.sexe}</td>
         <td style="text-align:center">${e.moyenneCompo1 !== null ? `${e.moyenneCompo1}/10` : '—'}</td>
@@ -417,9 +443,9 @@ export default function SynthesePage() {
   <h3>🏆 Classement annuel des élèves</h3>
   <table>
     <thead><tr>
-      <th>Rang</th><th>Nom et Prénom</th><th style="text-align:center">Sexe</th>
-      <th style="text-align:center">Moy. C1</th><th style="text-align:center">Moy. C2</th><th style="text-align:center">Moy. C3</th>
-      <th style="text-align:center">Moy. Annuelle</th><th style="text-align:center">Décision</th>
+      <th>Rang</th><th class="left">Nom et Prénom</th><th>Sexe</th>
+      <th>Moy. C1</th><th>Moy. C2</th><th>Moy. C3</th>
+      <th>Moy. Annuelle</th><th>Décision</th>
     </tr></thead>
     <tbody>${rowsHTML}</tbody>
   </table>
@@ -430,6 +456,7 @@ export default function SynthesePage() {
     w.document.write(html); w.document.close(); setTimeout(() => w.print(), 400)
   }
 
+  // ── Données UI ────────────────────────────────────────────────────────────
   const sorted: EleveMoyenne[] = data?.eleves
     ? [...data.eleves].sort((a: EleveMoyenne, b: EleveMoyenne) => (b.moyenne ?? 0) - (a.moyenne ?? 0))
     : []
@@ -450,11 +477,7 @@ export default function SynthesePage() {
     : { simples: [], groupes: [] }
 
   const eleveStats = sorted.length > 0 ? buildEleveStats(sorted) : null
-
-  // ── Stats bilan annuel ──
-  const bilanEleveStats = bilanAnnuel && bilanAnnuel.length > 0
-    ? buildBilanEleveStats(bilanAnnuel)
-    : null
+  const bilanEleveStats = bilanAnnuel && bilanAnnuel.length > 0 ? buildBilanEleveStats(bilanAnnuel) : null
 
   return (
     <Card title="Synthèse de composition">
@@ -493,7 +516,7 @@ export default function SynthesePage() {
 
       {(isLoading || isLoadingAnnuel) && <p style={{ color: 'var(--txt2)' }}>Chargement...</p>}
 
-      {/* ── Vue composition ── */}
+      {/* ── Vue composition ─────────────────────────────────────────────── */}
       {mode === 'compo' && data && data.stats && !isLoading && (
         <>
           <div style={{ marginBottom: '1rem' }}>
@@ -511,6 +534,7 @@ export default function SynthesePage() {
             <StatCard value={data.stats.minMoyenne ?? '—'} label="Note la plus basse" color="violet" />
           </StatsGrid>
 
+          {/* Classement élèves */}
           <h3 style={{ fontFamily: 'var(--font-playfair)', color: 'var(--vert)', marginBottom: '1rem' }}>🏆 Classement des élèves</h3>
           <div className="table-wrap" style={{ marginBottom: '1.5rem' }}>
             <table>
@@ -539,36 +563,102 @@ export default function SynthesePage() {
             </table>
           </div>
 
+          {/* ── Statistiques par matière — format G/F/T ── */}
           <h3 style={{ fontFamily: 'var(--font-playfair)', color: 'var(--vert)', marginBottom: '1rem' }}>📚 Statistiques par matière</h3>
-          <div className="table-wrap" style={{ marginBottom: '1.5rem' }}>
-            <table>
+          <div style={{ marginBottom: '1.5rem', borderRadius: '12px', overflow: 'hidden', border: '1px solid #dde8dd', boxShadow: '0 2px 8px rgba(26,107,58,0.07)' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
               <thead>
-                <tr><th>Matière</th><th>Moy. classe</th><th>Max</th><th>Min</th><th>% Réussite</th></tr>
+                <tr style={{ background: 'var(--vert)' }}>
+                  <th rowSpan={2} style={{
+                    textAlign: 'left', verticalAlign: 'middle',
+                    padding: '0.75rem 1.2rem', color: '#fff',
+                    fontWeight: 700, fontSize: '0.8rem', textTransform: 'uppercase',
+                    letterSpacing: '0.05em', width: '30%',
+                    borderRight: '2px solid rgba(255,255,255,0.15)',
+                  }}>Matière</th>
+                  <th colSpan={3} style={{
+                    textAlign: 'center', color: '#fff', fontWeight: 700,
+                    fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.05em',
+                    padding: '0.6rem', borderRight: '2px solid rgba(255,255,255,0.15)',
+                    borderBottom: '1px solid rgba(255,255,255,0.2)',
+                  }}>Ont composé</th>
+                  <th colSpan={3} style={{
+                    textAlign: 'center', color: '#fff', fontWeight: 700,
+                    fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.05em',
+                    padding: '0.6rem',
+                    borderBottom: '1px solid rgba(255,255,255,0.2)',
+                  }}>Ont obtenu la moyenne</th>
+                </tr>
+                <tr style={{ background: 'var(--vert)' }}>
+                  {(['G','F','T'] as const).map((l, i) => (
+                    <th key={`c-${l}`} style={{
+                      textAlign: 'center', color: 'rgba(255,255,255,0.9)',
+                      fontWeight: 600, fontSize: '0.78rem', padding: '0.4rem 1rem',
+                      borderRight: i === 2 ? '2px solid rgba(255,255,255,0.15)' : '1px solid rgba(255,255,255,0.1)',
+                    }}>{l}</th>
+                  ))}
+                  {(['G','F','T'] as const).map((l, i) => (
+                    <th key={`m-${l}`} style={{
+                      textAlign: 'center', color: 'rgba(255,255,255,0.9)',
+                      fontWeight: 600, fontSize: '0.78rem', padding: '0.4rem 1rem',
+                      borderRight: i < 2 ? '1px solid rgba(255,255,255,0.1)' : undefined,
+                    }}>{l}</th>
+                  ))}
+                </tr>
               </thead>
               <tbody>
-                {groupesUI.map((g) => (
-                  <tr key={`groupe-${g.nom}`} style={{ background: '#f0faf5' }}>
-                    <td><strong>{g.nom}</strong> <span style={{ fontSize: '0.72rem', color: 'var(--vert)', fontWeight: 400 }}>(groupe)</span></td>
-                    <td>{g.moyenneClasse ?? '—'}</td>
-                    <td>{g.max ?? '—'}</td>
-                    <td>{g.min ?? '—'}</td>
-                    <td>{g.pctReussite !== null ? <span style={{ fontWeight: 700, color: g.pctReussite >= 50 ? 'var(--vert)' : '#c0392b' }}>{g.pctReussite}%</span> : '—'}</td>
-                  </tr>
-                ))}
-                {simplesUI.map((ms: MatiereStat) => (
-                  <tr key={ms.matiere.id}>
-                    <td><strong>{ms.matiere.nom}</strong></td>
-                    <td>{ms.moyenneClasse ?? '—'}</td>
-                    <td>{ms.max ?? '—'}</td>
-                    <td>{ms.min ?? '—'}</td>
-                    <td>{ms.pctReussite !== null ? <span style={{ fontWeight: 700, color: ms.pctReussite >= 50 ? 'var(--vert)' : '#c0392b' }}>{ms.pctReussite}%</span> : '—'}</td>
+                {[...groupesUI.map(g => ({ isGroupe: true, nom: g.nom, compose: g.compose, avecMoyenne: g.avecMoyenne, id: `groupe-${g.nom}` })),
+                  ...simplesUI.map(ms => ({ isGroupe: false, nom: ms.matiere.nom, compose: ms.compose, avecMoyenne: ms.avecMoyenne, id: `mat-${ms.matiere.id}` }))
+                ].map((row, idx) => (
+                  <tr key={row.id} style={{ background: idx % 2 === 0 ? '#fff' : '#f8fcf9', transition: 'background 0.15s' }}
+                    onMouseEnter={e => (e.currentTarget.style.background = '#edf7f1')}
+                    onMouseLeave={e => (e.currentTarget.style.background = idx % 2 === 0 ? '#fff' : '#f8fcf9')}
+                  >
+                    <td style={{
+                      padding: '0.7rem 1.2rem',
+                      borderBottom: '1px solid #e8f0e9',
+                      borderRight: '2px solid #dde8dd',
+                      fontWeight: row.isGroupe ? 700 : 600,
+                      color: row.isGroupe ? 'var(--vert)' : 'var(--txt)',
+                    }}>
+                      {row.nom}
+                      {row.isGroupe && (
+                        <span style={{ marginLeft: '6px', fontSize: '0.68rem', fontWeight: 500,
+                          background: '#e6f4ec', color: 'var(--vert)', padding: '1px 6px',
+                          borderRadius: '20px', verticalAlign: 'middle' }}>groupe</span>
+                      )}
+                    </td>
+                    {/* Ont composé */}
+                    {(['G','F','T'] as const).map((k, i) => (
+                      <td key={`c-${k}`} style={{
+                        textAlign: 'center', padding: '0.7rem 1rem',
+                        borderBottom: '1px solid #e8f0e9',
+                        borderRight: i === 2 ? '2px solid #dde8dd' : '1px solid #eef3ee',
+                        fontWeight: k === 'T' ? 700 : 400,
+                        color: k === 'T' ? 'var(--txt)' : 'var(--txt2)',
+                        fontSize: k === 'T' ? '0.9rem' : '0.875rem',
+                      }}>{row.compose[k]}</td>
+                    ))}
+                    {/* Ont obtenu la moyenne */}
+                    {(['G','F','T'] as const).map((k, i) => (
+                      <td key={`m-${k}`} style={{
+                        textAlign: 'center', padding: '0.7rem 1rem',
+                        borderBottom: '1px solid #e8f0e9',
+                        borderRight: i < 2 ? '1px solid #eef3ee' : undefined,
+                        fontWeight: k === 'T' ? 700 : 400,
+                        fontSize: k === 'T' ? '0.9rem' : '0.875rem',
+                        color: k === 'T'
+                          ? (row.avecMoyenne.T >= row.compose.T / 2 ? '#1a6b3a' : '#c0392b')
+                          : 'var(--txt2)',
+                      }}>{row.avecMoyenne[k]}</td>
+                    ))}
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
 
-          {/* ── Statistiques par élève (compo) ── */}
+          {/* Statistiques par élève */}
           {eleveStats && (
             <>
               <h3 style={{ fontFamily: 'var(--font-playfair)', color: 'var(--vert)', marginBottom: '1rem' }}>👥 Statistiques par élève</h3>
@@ -589,84 +679,98 @@ export default function SynthesePage() {
               </StatsGrid>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '1rem' }}>
-                <div className="table-wrap">
-                  <table>
+                <div style={{ borderRadius: '12px', overflow: 'hidden', border: '1px solid #dde8dd', boxShadow: '0 2px 8px rgba(26,107,58,0.07)' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
                     <thead>
-                      <tr><th colSpan={5}>Répartition Garçons / Filles</th></tr>
-                      <tr>
-                        <th>Sexe</th>
-                        <th style={{ textAlign: 'center' }}>Effectif</th>
-                        <th style={{ textAlign: 'center' }}>Avec moy.</th>
-                        <th style={{ textAlign: 'center' }}>Sans moy.</th>
-                        <th style={{ textAlign: 'center' }}>Taux</th>
+                      <tr style={{ background: 'var(--vert)' }}>
+                        <th colSpan={4} style={{ textAlign: 'left', padding: '0.65rem 1.2rem', color: '#fff', fontWeight: 700, fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                          Répartition Garçons / Filles
+                        </th>
+                      </tr>
+                      <tr style={{ background: 'var(--vert)' }}>
+                        {['Sexe', 'Effectif', 'Avec moy.', 'Sans moy.'].map((h, i) => (
+                          <th key={h} style={{
+                            textAlign: i === 0 ? 'left' : 'center',
+                            padding: '0.45rem 1rem',
+                            color: 'rgba(255,255,255,0.85)',
+                            fontWeight: 600, fontSize: '0.78rem',
+                            borderTop: '1px solid rgba(255,255,255,0.15)',
+                            borderRight: i < 3 ? '1px solid rgba(255,255,255,0.1)' : undefined,
+                          }}>{h}</th>
+                        ))}
                       </tr>
                     </thead>
                     <tbody>
-                      <tr>
-                        <td><strong>👦 Garçons</strong></td>
-                        <td style={{ textAlign: 'center' }}>{eleveStats.garcons.length}</td>
-                        <td style={{ textAlign: 'center' }}>
-                          <span className="badge badge-success">{eleveStats.avecMoyenne(eleveStats.garcons).length}</span>
-                        </td>
-                        <td style={{ textAlign: 'center' }}>
-                          <span className="badge badge-danger">{eleveStats.sansMoyenne(eleveStats.garcons).length}</span>
-                        </td>
-                        <td style={{ textAlign: 'center', fontWeight: 700, color: (eleveStats.taux(eleveStats.garcons) ?? 0) >= 50 ? 'var(--vert)' : '#c0392b' }}>
-                          {eleveStats.taux(eleveStats.garcons) !== null ? `${eleveStats.taux(eleveStats.garcons)}%` : '—'}
-                        </td>
-                      </tr>
-                      <tr>
-                        <td><strong>👧 Filles</strong></td>
-                        <td style={{ textAlign: 'center' }}>{eleveStats.filles.length}</td>
-                        <td style={{ textAlign: 'center' }}>
-                          <span className="badge badge-success">{eleveStats.avecMoyenne(eleveStats.filles).length}</span>
-                        </td>
-                        <td style={{ textAlign: 'center' }}>
-                          <span className="badge badge-danger">{eleveStats.sansMoyenne(eleveStats.filles).length}</span>
-                        </td>
-                        <td style={{ textAlign: 'center', fontWeight: 700, color: (eleveStats.taux(eleveStats.filles) ?? 0) >= 50 ? 'var(--vert)' : '#c0392b' }}>
-                          {eleveStats.taux(eleveStats.filles) !== null ? `${eleveStats.taux(eleveStats.filles)}%` : '—'}
-                        </td>
-                      </tr>
-                      <tr style={{ background: '#f0faf5' }}>
-                        <td><strong>Total</strong></td>
-                        <td style={{ textAlign: 'center' }}><strong>{sorted.length}</strong></td>
-                        <td style={{ textAlign: 'center' }}>
+                      {[
+                        { label: '👦 Garçons', arr: eleveStats.garcons },
+                        { label: '👧 Filles',  arr: eleveStats.filles  },
+                      ].map(({ label, arr }, idx) => (
+                        <tr key={label} style={{ background: idx % 2 === 0 ? '#fff' : '#f8fcf9' }}
+                          onMouseEnter={e => (e.currentTarget.style.background = '#edf7f1')}
+                          onMouseLeave={e => (e.currentTarget.style.background = idx % 2 === 0 ? '#fff' : '#f8fcf9')}
+                        >
+                          <td style={{ padding: '0.7rem 1.2rem', fontWeight: 600, borderBottom: '1px solid #e8f0e9', borderRight: '1px solid #eef3ee' }}>{label}</td>
+                          <td style={{ textAlign: 'center', padding: '0.7rem 1rem', fontWeight: 700, borderBottom: '1px solid #e8f0e9', borderRight: '1px solid #eef3ee' }}>{arr.length}</td>
+                          <td style={{ textAlign: 'center', padding: '0.7rem 1rem', borderBottom: '1px solid #e8f0e9', borderRight: '1px solid #eef3ee' }}>
+                            <span className="badge badge-success">{eleveStats.avecMoyenne(arr).length}</span>
+                          </td>
+                          <td style={{ textAlign: 'center', padding: '0.7rem 1rem', borderBottom: '1px solid #e8f0e9' }}>
+                            <span className="badge badge-danger">{eleveStats.sansMoyenne(arr).length}</span>
+                          </td>
+                        </tr>
+                      ))}
+                      <tr style={{ background: '#edf7f1' }}>
+                        <td style={{ padding: '0.7rem 1.2rem', fontWeight: 700, borderRight: '1px solid #eef3ee' }}>Total</td>
+                        <td style={{ textAlign: 'center', padding: '0.7rem 1rem', fontWeight: 700, borderRight: '1px solid #eef3ee' }}>{sorted.length}</td>
+                        <td style={{ textAlign: 'center', padding: '0.7rem 1rem', borderRight: '1px solid #eef3ee' }}>
                           <span className="badge badge-success"><strong>{eleveStats.avecMoyenne(sorted).length}</strong></span>
                         </td>
-                        <td style={{ textAlign: 'center' }}>
+                        <td style={{ textAlign: 'center', padding: '0.7rem 1rem' }}>
                           <span className="badge badge-danger"><strong>{eleveStats.sansMoyenne(sorted).length}</strong></span>
                         </td>
-                        <td style={{ textAlign: 'center' }}>—</td>
                       </tr>
                     </tbody>
                   </table>
                 </div>
 
-                <div className="table-wrap">
-                  <table>
+                <div style={{ borderRadius: '12px', overflow: 'hidden', border: '1px solid #dde8dd', boxShadow: '0 2px 8px rgba(26,107,58,0.07)' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
                     <thead>
-                      <tr><th colSpan={3}>Répartition par mention</th></tr>
-                      <tr>
-                        <th>Mention</th>
-                        <th style={{ textAlign: 'center' }}>Nb élèves</th>
-                        <th style={{ textAlign: 'center' }}>%</th>
+                      <tr style={{ background: 'var(--vert)' }}>
+                        <th colSpan={2} style={{ textAlign: 'left', padding: '0.65rem 1.2rem', color: '#fff', fontWeight: 700, fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                          Répartition par mention
+                        </th>
+                      </tr>
+                      <tr style={{ background: 'var(--vert)' }}>
+                        {['Mention', 'Nb élèves'].map((h, i) => (
+                          <th key={h} style={{
+                            textAlign: i === 0 ? 'left' : 'center',
+                            padding: '0.45rem 1rem',
+                            color: 'rgba(255,255,255,0.85)',
+                            fontWeight: 600, fontSize: '0.78rem',
+                            borderTop: '1px solid rgba(255,255,255,0.15)',
+                            borderRight: i === 0 ? '1px solid rgba(255,255,255,0.1)' : undefined,
+                          }}>{h}</th>
+                        ))}
                       </tr>
                     </thead>
                     <tbody>
                       {eleveStats.mentionStats.length > 0
-                        ? eleveStats.mentionStats.map(m => (
-                            <tr key={m.cls}>
-                              <td><span className={`mention ${m.cls}`}>{m.label}</span></td>
-                              <td style={{ textAlign: 'center', fontWeight: 700 }}>{m.count}</td>
-                              <td style={{ textAlign: 'center', color: 'var(--txt2)' }}>
-                                {sorted.length > 0 ? Math.round((m.count / sorted.length) * 100) : 0}%
+                        ? eleveStats.mentionStats.map((m, idx) => (
+                            <tr key={m.cls}
+                              style={{ background: idx % 2 === 0 ? '#fff' : '#f8fcf9' }}
+                              onMouseEnter={e => (e.currentTarget.style.background = '#edf7f1')}
+                              onMouseLeave={e => (e.currentTarget.style.background = idx % 2 === 0 ? '#fff' : '#f8fcf9')}
+                            >
+                              <td style={{ padding: '0.7rem 1.2rem', borderBottom: '1px solid #e8f0e9', borderRight: '1px solid #eef3ee' }}>
+                                <span className={`mention ${m.cls}`}>{m.label}</span>
                               </td>
+                              <td style={{ textAlign: 'center', padding: '0.7rem 1rem', fontWeight: 700, borderBottom: '1px solid #e8f0e9' }}>{m.count}</td>
                             </tr>
                           ))
                         : (
                           <tr>
-                            <td colSpan={3} style={{ textAlign: 'center', color: 'var(--txt2)', padding: '1rem' }}>
+                            <td colSpan={2} style={{ textAlign: 'center', color: 'var(--txt2)', padding: '1.5rem' }}>
                               Aucune note saisie
                             </td>
                           </tr>
@@ -681,7 +785,7 @@ export default function SynthesePage() {
         </>
       )}
 
-      {/* ── Vue bilan annuel ── */}
+      {/* ── Vue bilan annuel ─────────────────────────────────────────────── */}
       {mode === 'annuelle' && bilanAnnuel && bilanAnnuel.length > 0 && !isLoadingAnnuel && (
         <>
           <div style={{ marginBottom: '1rem' }}>
@@ -737,14 +841,13 @@ export default function SynthesePage() {
             </table>
           </div>
 
-          {/* ── Statistiques par élève (annuel) ── */}
+          {/* Statistiques par élève (annuel) */}
           {bilanEleveStats && (
             <>
               <h3 style={{ fontFamily: 'var(--font-playfair)', color: 'var(--vert)', marginBottom: '1rem', marginTop: '2rem' }}>
                 👥 Statistiques par élève
               </h3>
 
-              {/* Cards résumé */}
               <StatsGrid>
                 <StatCard value={bilanEleveStats.garcons.length}                                                                                                           label="Garçons"               color="bleu"   />
                 <StatCard value={bilanEleveStats.admis(bilanEleveStats.garcons).length}                                                                                    label="Garçons admis"          color="vert"   />
@@ -754,16 +857,13 @@ export default function SynthesePage() {
                 <StatCard value={bilanEleveStats.tauxAdmission(bilanEleveStats.filles) !== null ? `${bilanEleveStats.tauxAdmission(bilanEleveStats.filles)}%` : '—'}      label="Taux admission filles"  color="vert"   />
               </StatsGrid>
 
-              {/* Tableaux Garçons/Filles + Décisions */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '1rem' }}>
-
-                {/* Tableau Garçons / Filles */}
                 <div className="table-wrap">
                   <table>
                     <thead>
                       <tr><th colSpan={5}>Répartition Garçons / Filles</th></tr>
                       <tr>
-                        <th>Sexe</th>
+                        <th style={{ textAlign: 'left' }}>Sexe</th>
                         <th style={{ textAlign: 'center' }}>Effectif</th>
                         <th style={{ textAlign: 'center' }}>Admis</th>
                         <th style={{ textAlign: 'center' }}>Redoublants</th>
@@ -774,12 +874,8 @@ export default function SynthesePage() {
                       <tr>
                         <td><strong>👦 Garçons</strong></td>
                         <td style={{ textAlign: 'center' }}>{bilanEleveStats.garcons.length}</td>
-                        <td style={{ textAlign: 'center' }}>
-                          <span className="badge badge-success">{bilanEleveStats.admis(bilanEleveStats.garcons).length}</span>
-                        </td>
-                        <td style={{ textAlign: 'center' }}>
-                          <span className="badge badge-danger">{bilanEleveStats.redouble(bilanEleveStats.garcons).length}</span>
-                        </td>
+                        <td style={{ textAlign: 'center' }}><span className="badge badge-success">{bilanEleveStats.admis(bilanEleveStats.garcons).length}</span></td>
+                        <td style={{ textAlign: 'center' }}><span className="badge badge-danger">{bilanEleveStats.redouble(bilanEleveStats.garcons).length}</span></td>
                         <td style={{ textAlign: 'center', fontWeight: 700, color: (bilanEleveStats.tauxAdmission(bilanEleveStats.garcons) ?? 0) >= 50 ? 'var(--vert)' : '#c0392b' }}>
                           {bilanEleveStats.tauxAdmission(bilanEleveStats.garcons) !== null ? `${bilanEleveStats.tauxAdmission(bilanEleveStats.garcons)}%` : '—'}
                         </td>
@@ -787,12 +883,8 @@ export default function SynthesePage() {
                       <tr>
                         <td><strong>👧 Filles</strong></td>
                         <td style={{ textAlign: 'center' }}>{bilanEleveStats.filles.length}</td>
-                        <td style={{ textAlign: 'center' }}>
-                          <span className="badge badge-success">{bilanEleveStats.admis(bilanEleveStats.filles).length}</span>
-                        </td>
-                        <td style={{ textAlign: 'center' }}>
-                          <span className="badge badge-danger">{bilanEleveStats.redouble(bilanEleveStats.filles).length}</span>
-                        </td>
+                        <td style={{ textAlign: 'center' }}><span className="badge badge-success">{bilanEleveStats.admis(bilanEleveStats.filles).length}</span></td>
+                        <td style={{ textAlign: 'center' }}><span className="badge badge-danger">{bilanEleveStats.redouble(bilanEleveStats.filles).length}</span></td>
                         <td style={{ textAlign: 'center', fontWeight: 700, color: (bilanEleveStats.tauxAdmission(bilanEleveStats.filles) ?? 0) >= 50 ? 'var(--vert)' : '#c0392b' }}>
                           {bilanEleveStats.tauxAdmission(bilanEleveStats.filles) !== null ? `${bilanEleveStats.tauxAdmission(bilanEleveStats.filles)}%` : '—'}
                         </td>
@@ -800,27 +892,21 @@ export default function SynthesePage() {
                       <tr style={{ background: '#f0faf5' }}>
                         <td><strong>Total</strong></td>
                         <td style={{ textAlign: 'center' }}><strong>{sortedAnnuel.length}</strong></td>
-                        <td style={{ textAlign: 'center' }}>
-                          <span className="badge badge-success"><strong>{bilanEleveStats.admis(sortedAnnuel).length}</strong></span>
-                        </td>
-                        <td style={{ textAlign: 'center' }}>
-                          <span className="badge badge-danger"><strong>{bilanEleveStats.redouble(sortedAnnuel).length}</strong></span>
-                        </td>
+                        <td style={{ textAlign: 'center' }}><span className="badge badge-success"><strong>{bilanEleveStats.admis(sortedAnnuel).length}</strong></span></td>
+                        <td style={{ textAlign: 'center' }}><span className="badge badge-danger"><strong>{bilanEleveStats.redouble(sortedAnnuel).length}</strong></span></td>
                         <td style={{ textAlign: 'center' }}>—</td>
                       </tr>
                     </tbody>
                   </table>
                 </div>
 
-                {/* Tableau Répartition par décision */}
                 <div className="table-wrap">
                   <table>
                     <thead>
-                      <tr><th colSpan={3}>Répartition par décision</th></tr>
+                      <tr><th colSpan={2}>Répartition par décision</th></tr>
                       <tr>
-                        <th>Décision</th>
+                        <th style={{ textAlign: 'left' }}>Décision</th>
                         <th style={{ textAlign: 'center' }}>Nb élèves</th>
-                        <th style={{ textAlign: 'center' }}>%</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -833,14 +919,11 @@ export default function SynthesePage() {
                                 </span>
                               </td>
                               <td style={{ textAlign: 'center', fontWeight: 700 }}>{d.count}</td>
-                              <td style={{ textAlign: 'center', color: 'var(--txt2)' }}>
-                                {sortedAnnuel.length > 0 ? Math.round((d.count / sortedAnnuel.length) * 100) : 0}%
-                              </td>
                             </tr>
                           ))
                         : (
                           <tr>
-                            <td colSpan={3} style={{ textAlign: 'center', color: 'var(--txt2)', padding: '1rem' }}>
+                            <td colSpan={2} style={{ textAlign: 'center', color: 'var(--txt2)', padding: '1rem' }}>
                               Aucune décision enregistrée
                             </td>
                           </tr>
@@ -851,14 +934,13 @@ export default function SynthesePage() {
                 </div>
               </div>
 
-              {/* ── Progression C1 → C2 → C3 ── */}
+              {/* Progression C1 → C2 → C3 */}
               {(bilanEleveStats.avecC1C2.length > 0 || bilanEleveStats.avecC2C3.length > 0) && (
                 <>
                   <h3 style={{ fontFamily: 'var(--font-playfair)', color: 'var(--vert)', marginBottom: '1rem', marginTop: '2rem' }}>
                     📈 Progression annuelle C1 → C2 → C3
                   </h3>
 
-                  {/* Bandeau moyennes par compo */}
                   <div style={{
                     display: 'flex', gap: '1rem', alignItems: 'center',
                     background: '#f0faf5', border: '1px solid #c3e6cb',
@@ -900,15 +982,13 @@ export default function SynthesePage() {
                   </div>
 
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-
-                    {/* C1 → C2 */}
                     {bilanEleveStats.avecC1C2.length > 0 && (
                       <div className="table-wrap">
                         <table>
                           <thead>
                             <tr><th colSpan={3}>Évolution C1 → C2 ({bilanEleveStats.avecC1C2.length} élèves)</th></tr>
                             <tr>
-                              <th>Tendance</th>
+                              <th style={{ textAlign: 'left' }}>Tendance</th>
                               <th style={{ textAlign: 'center' }}>Nb élèves</th>
                               <th style={{ textAlign: 'center' }}>%</th>
                             </tr>
@@ -917,37 +997,29 @@ export default function SynthesePage() {
                             <tr>
                               <td><span style={{ color: 'var(--vert)', fontWeight: 700 }}>▲ En progression</span></td>
                               <td style={{ textAlign: 'center', fontWeight: 700 }}>{bilanEleveStats.progressC1C2}</td>
-                              <td style={{ textAlign: 'center', color: 'var(--txt2)' }}>
-                                {Math.round((bilanEleveStats.progressC1C2 / bilanEleveStats.avecC1C2.length) * 100)}%
-                              </td>
+                              <td style={{ textAlign: 'center', color: 'var(--txt2)' }}>{Math.round((bilanEleveStats.progressC1C2 / bilanEleveStats.avecC1C2.length) * 100)}%</td>
                             </tr>
                             <tr>
                               <td><span style={{ color: '#c8972a', fontWeight: 700 }}>= Stable</span></td>
                               <td style={{ textAlign: 'center', fontWeight: 700 }}>{bilanEleveStats.stableC1C2}</td>
-                              <td style={{ textAlign: 'center', color: 'var(--txt2)' }}>
-                                {Math.round((bilanEleveStats.stableC1C2 / bilanEleveStats.avecC1C2.length) * 100)}%
-                              </td>
+                              <td style={{ textAlign: 'center', color: 'var(--txt2)' }}>{Math.round((bilanEleveStats.stableC1C2 / bilanEleveStats.avecC1C2.length) * 100)}%</td>
                             </tr>
                             <tr>
                               <td><span style={{ color: '#c0392b', fontWeight: 700 }}>▼ En régression</span></td>
                               <td style={{ textAlign: 'center', fontWeight: 700 }}>{bilanEleveStats.regressC1C2}</td>
-                              <td style={{ textAlign: 'center', color: 'var(--txt2)' }}>
-                                {Math.round((bilanEleveStats.regressC1C2 / bilanEleveStats.avecC1C2.length) * 100)}%
-                              </td>
+                              <td style={{ textAlign: 'center', color: 'var(--txt2)' }}>{Math.round((bilanEleveStats.regressC1C2 / bilanEleveStats.avecC1C2.length) * 100)}%</td>
                             </tr>
                           </tbody>
                         </table>
                       </div>
                     )}
-
-                    {/* C2 → C3 */}
                     {bilanEleveStats.avecC2C3.length > 0 && (
                       <div className="table-wrap">
                         <table>
                           <thead>
                             <tr><th colSpan={3}>Évolution C2 → C3 ({bilanEleveStats.avecC2C3.length} élèves)</th></tr>
                             <tr>
-                              <th>Tendance</th>
+                              <th style={{ textAlign: 'left' }}>Tendance</th>
                               <th style={{ textAlign: 'center' }}>Nb élèves</th>
                               <th style={{ textAlign: 'center' }}>%</th>
                             </tr>
@@ -956,23 +1028,17 @@ export default function SynthesePage() {
                             <tr>
                               <td><span style={{ color: 'var(--vert)', fontWeight: 700 }}>▲ En progression</span></td>
                               <td style={{ textAlign: 'center', fontWeight: 700 }}>{bilanEleveStats.progressC2C3}</td>
-                              <td style={{ textAlign: 'center', color: 'var(--txt2)' }}>
-                                {Math.round((bilanEleveStats.progressC2C3 / bilanEleveStats.avecC2C3.length) * 100)}%
-                              </td>
+                              <td style={{ textAlign: 'center', color: 'var(--txt2)' }}>{Math.round((bilanEleveStats.progressC2C3 / bilanEleveStats.avecC2C3.length) * 100)}%</td>
                             </tr>
                             <tr>
                               <td><span style={{ color: '#c8972a', fontWeight: 700 }}>= Stable</span></td>
                               <td style={{ textAlign: 'center', fontWeight: 700 }}>{bilanEleveStats.stableC2C3}</td>
-                              <td style={{ textAlign: 'center', color: 'var(--txt2)' }}>
-                                {Math.round((bilanEleveStats.stableC2C3 / bilanEleveStats.avecC2C3.length) * 100)}%
-                              </td>
+                              <td style={{ textAlign: 'center', color: 'var(--txt2)' }}>{Math.round((bilanEleveStats.stableC2C3 / bilanEleveStats.avecC2C3.length) * 100)}%</td>
                             </tr>
                             <tr>
                               <td><span style={{ color: '#c0392b', fontWeight: 700 }}>▼ En régression</span></td>
                               <td style={{ textAlign: 'center', fontWeight: 700 }}>{bilanEleveStats.regressC2C3}</td>
-                              <td style={{ textAlign: 'center', color: 'var(--txt2)' }}>
-                                {Math.round((bilanEleveStats.regressC2C3 / bilanEleveStats.avecC2C3.length) * 100)}%
-                              </td>
+                              <td style={{ textAlign: 'center', color: 'var(--txt2)' }}>{Math.round((bilanEleveStats.regressC2C3 / bilanEleveStats.avecC2C3.length) * 100)}%</td>
                             </tr>
                           </tbody>
                         </table>

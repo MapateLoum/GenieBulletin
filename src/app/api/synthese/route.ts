@@ -38,27 +38,51 @@ export async function GET(req: Request) {
       ? Math.round((avecNote.reduce((s, e) => s + (e.moyenne ?? 0), 0) / avecNote.length) * 100) / 100
       : null
 
+    // Map eleveId → sexe pour croisement rapide
+    const eleveSexeMap = new Map<number, string>(eleves.map(e => [e.id, e.sexe]))
+
     const matiereStats = matieres.map((m) => {
-      const notesMat = notes
-        .filter((n) => n.matiereId === m.id && n.valeur !== null)
-        .map((n) => n.valeur as number)
+      // Notes avec valeur non nulle pour cette matière
+      const notesMat = notes.filter((n) => n.matiereId === m.id && n.valeur !== null)
 
-      const moyenneClasse = notesMat.length
-        ? Math.round((notesMat.reduce((s, n) => s + n, 0) / notesMat.length) * 100) / 100
-        : null
+      // ── Ont composé ──
+      const garconIds  = notesMat.filter(n => eleveSexeMap.get(n.eleveId) === 'G').map(n => n.eleveId)
+      const filleIds   = notesMat.filter(n => eleveSexeMap.get(n.eleveId) === 'F').map(n => n.eleveId)
 
-      // % réussite : élèves ayant ≥ 5/10 dans cette matière (note ramenée sur 10)
-      const avecReussite = notesMat.filter((v) => (v / m.bareme) * 10 >= 5).length
-      const pctReussite = notesMat.length
-        ? Math.round((avecReussite / notesMat.length) * 100)
+      const compose = {
+        G: garconIds.length,
+        F: filleIds.length,
+        T: notesMat.length,
+      }
+
+      // ── Ont obtenu la moyenne (≥ 5/10 ramenée sur 10) ──
+      const avecMoyGarcons = notesMat.filter(
+        n => eleveSexeMap.get(n.eleveId) === 'G' && (n.valeur! / m.bareme) * 10 >= 5
+      ).length
+      const avecMoyFilles = notesMat.filter(
+        n => eleveSexeMap.get(n.eleveId) === 'F' && (n.valeur! / m.bareme) * 10 >= 5
+      ).length
+      const avecMoyTotal = notesMat.filter(n => (n.valeur! / m.bareme) * 10 >= 5).length
+
+      const avecMoyenne = {
+        G: avecMoyGarcons,
+        F: avecMoyFilles,
+        T: avecMoyTotal,
+      }
+
+      // Moyenne classe (conservée pour l'impression)
+      const valeursNotes = notesMat.map(n => n.valeur as number)
+      const moyenneClasse = valeursNotes.length
+        ? Math.round((valeursNotes.reduce((s, n) => s + n, 0) / valeursNotes.length) * 100) / 100
         : null
 
       return {
         matiere: m,
         moyenneClasse,
-        max: notesMat.length ? Math.max(...notesMat) : null,
-        min: notesMat.length ? Math.min(...notesMat) : null,
-        pctReussite,
+        max: valeursNotes.length ? Math.max(...valeursNotes) : null,
+        min: valeursNotes.length ? Math.min(...valeursNotes) : null,
+        compose,
+        avecMoyenne,
       }
     })
 
