@@ -23,7 +23,7 @@ type BilanAnnuel = {
 }
 
 type MatiereStat = {
-  matiere: { id: number; nom: string; coef: number; bareme: number; groupeNom?: string | null }
+  matiere: { id: number; nom: string; bareme: number; groupeNom?: string | null }
   moyenneClasse: number | null
   max: number | null
   min: number | null
@@ -70,9 +70,7 @@ function buildGroupeStats(matiereStats: MatiereStat[]): { simples: MatiereStat[]
       ? Math.round(avecPct.reduce((s: number, m: any) => s + m.pctReussite!, 0) / avecPct.length)
       : null
     groupes.push({
-      nom,
-      baremeTotal,
-      moyenneClasse,
+      nom, baremeTotal, moyenneClasse,
       max: maxVals.length ? Math.max(...maxVals) : null,
       min: minVals.length ? Math.min(...minVals) : null,
       pctReussite,
@@ -80,6 +78,88 @@ function buildGroupeStats(matiereStats: MatiereStat[]): { simples: MatiereStat[]
   })
 
   return { simples, groupes }
+}
+
+function buildEleveStats(eleves: EleveMoyenne[]) {
+  const garcons = eleves.filter(e => e.sexe === 'G')
+  const filles  = eleves.filter(e => e.sexe === 'F')
+
+  const avecMoyenne = (arr: EleveMoyenne[]) => arr.filter(e => e.aMoyenne)
+  const sansMoyenne = (arr: EleveMoyenne[]) => arr.filter(e => e.moyenne !== null && !e.aMoyenne)
+  const taux = (arr: EleveMoyenne[]) => {
+    const avecNote = arr.filter(e => e.moyenne !== null)
+    if (!avecNote.length) return null
+    return Math.round((avecMoyenne(arr).length / avecNote.length) * 100)
+  }
+
+  const mentionOrdre = ['Excellent', 'Très Bien', 'Bien', 'Assez Bien', 'Passable', 'Insuffisant']
+  const mentionCls: Record<string, string> = {
+    'Excellent': 'mention-excellent', 'Très Bien': 'mention-tbi',
+    'Bien': 'mention-bi', 'Assez Bien': 'mention-ab',
+    'Passable': 'mention-pc', 'Insuffisant': 'mention-insuf',
+  }
+  const mentionStats = mentionOrdre
+    .map(label => ({
+      label,
+      cls: mentionCls[label],
+      count: eleves.filter(e => e.mention?.label === label).length,
+    }))
+    .filter(m => m.count > 0)
+
+  return { garcons, filles, avecMoyenne, sansMoyenne, taux, mentionStats }
+}
+
+function buildBilanEleveStats(eleves: BilanAnnuel[]) {
+  const garcons = eleves.filter(e => e.sexe === 'G')
+  const filles  = eleves.filter(e => e.sexe === 'F')
+
+  const admis    = (arr: BilanAnnuel[]) => arr.filter(e => e.decision?.includes('Admis'))
+  const redouble = (arr: BilanAnnuel[]) => arr.filter(e => e.decision === 'Redouble')
+  const tauxAdmission = (arr: BilanAnnuel[]) => {
+    if (!arr.length) return null
+    return Math.round((admis(arr).length / arr.length) * 100)
+  }
+
+  const decisionsOrdre = ['Admis avec félicitations', 'Admis', 'Redouble']
+  const decisionStats = decisionsOrdre
+    .map(label => ({
+      label,
+      count: eleves.filter(e => e.decision === label).length,
+    }))
+    .filter(d => d.count > 0)
+
+  const avecC1C2 = eleves.filter(e => e.moyenneCompo1 !== null && e.moyenneCompo2 !== null)
+  const avecC2C3 = eleves.filter(e => e.moyenneCompo2 !== null && e.moyenneCompo3 !== null)
+  const avecC1C3 = eleves.filter(e => e.moyenneCompo1 !== null && e.moyenneCompo3 !== null)
+
+  const progressC1C2 = avecC1C2.filter(e => (e.moyenneCompo2 ?? 0) > (e.moyenneCompo1 ?? 0)).length
+  const stableC1C2   = avecC1C2.filter(e => (e.moyenneCompo2 ?? 0) === (e.moyenneCompo1 ?? 0)).length
+  const regressC1C2  = avecC1C2.filter(e => (e.moyenneCompo2 ?? 0) < (e.moyenneCompo1 ?? 0)).length
+
+  const progressC2C3 = avecC2C3.filter(e => (e.moyenneCompo3 ?? 0) > (e.moyenneCompo2 ?? 0)).length
+  const stableC2C3   = avecC2C3.filter(e => (e.moyenneCompo3 ?? 0) === (e.moyenneCompo2 ?? 0)).length
+  const regressC2C3  = avecC2C3.filter(e => (e.moyenneCompo3 ?? 0) < (e.moyenneCompo2 ?? 0)).length
+
+  const moyC1All = eleves.filter(e => e.moyenneCompo1 !== null)
+  const moyC1 = moyC1All.length
+    ? Math.round((moyC1All.reduce((s, e) => s + (e.moyenneCompo1 ?? 0), 0) / moyC1All.length) * 100) / 100
+    : null
+  const moyC2All = eleves.filter(e => e.moyenneCompo2 !== null)
+  const moyC2 = moyC2All.length
+    ? Math.round((moyC2All.reduce((s, e) => s + (e.moyenneCompo2 ?? 0), 0) / moyC2All.length) * 100) / 100
+    : null
+  const moyC3All = eleves.filter(e => e.moyenneCompo3 !== null)
+  const moyC3 = moyC3All.length
+    ? Math.round((moyC3All.reduce((s, e) => s + (e.moyenneCompo3 ?? 0), 0) / moyC3All.length) * 100) / 100
+    : null
+
+  return {
+    garcons, filles, admis, redouble, tauxAdmission, decisionStats,
+    progressC1C2, stableC1C2, regressC1C2,
+    progressC2C3, stableC2C3, regressC2C3,
+    avecC1C2, avecC2C3, avecC1C3,
+    moyC1, moyC2, moyC3,
+  }
 }
 
 export default function SynthesePage() {
@@ -93,6 +173,8 @@ export default function SynthesePage() {
     queryKey: ['synthese', niveau, div, compo],
     queryFn: () => fetch(`/api/synthese?niveau=${niveau}&div=${div}&compo=${compo}`).then(r => r.json()),
     enabled: triggered && mode === 'compo',
+    retry: false,
+    staleTime: 0,
   })
 
   const { data: bilanAnnuel, isLoading: isLoadingAnnuel, refetch: refetchAnnuel } = useQuery<BilanAnnuel[]>({
@@ -103,6 +185,8 @@ export default function SynthesePage() {
       return r.json()
     },
     enabled: triggered && mode === 'annuelle',
+    retry: false,
+    staleTime: 0,
   })
 
   function handleGenerate() {
@@ -116,7 +200,6 @@ export default function SynthesePage() {
     setTriggered(false)
   }
 
-  // ── CSS commun pour l'impression ──────────────────────────────
   const printCSS = `
     * { box-sizing:border-box; margin:0; padding:0; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
     body { font-family:Arial,sans-serif; padding:1.5rem; color:#1a1a1a; font-size:0.85rem; }
@@ -136,6 +219,7 @@ export default function SynthesePage() {
     tr { page-break-inside:avoid; }
     th { background:#1a6b3a !important; color:#fff !important; padding:7px 8px; text-align:left; font-size:0.72rem; text-transform:uppercase; }
     td { padding:5px 8px; border-bottom:1px solid #eee; }
+    .two-col { display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-top:0.5rem; }
     .footer { margin-top:1.5rem; display:flex; justify-content:space-between; font-size:0.78rem; color:#777; border-top:1px solid #ddd; padding-top:0.8rem; page-break-inside:avoid; }
     @media print {
       @page { margin:1cm; }
@@ -147,9 +231,8 @@ export default function SynthesePage() {
     }
   `
 
-  // ── Impression synthèse composition ──────────────────────────
   function handlePrint() {
-    if (!data) return
+    if (!data || !data.stats) return
 
     const sorted: EleveMoyenne[] = [...data.eleves].sort(
       (a: EleveMoyenne, b: EleveMoyenne) => (b.moyenne ?? 0) - (a.moyenne ?? 0)
@@ -184,7 +267,6 @@ export default function SynthesePage() {
     }).join('')
 
     const { simples, groupes } = buildGroupeStats(data.matiereStats)
-
     const groupeRowsHTML = groupes.map(g => `
       <tr style="background:#f0faf5">
         <td><strong>${g.nom}</strong></td>
@@ -192,9 +274,7 @@ export default function SynthesePage() {
         <td style="text-align:center">${g.max ?? '—'}</td>
         <td style="text-align:center">${g.min ?? '—'}</td>
         <td style="text-align:center;font-weight:700;color:${g.pctReussite !== null && g.pctReussite >= 50 ? '#1a6b3a' : '#c0392b'}">${g.pctReussite !== null ? g.pctReussite + '%' : '—'}</td>
-      </tr>
-    `).join('')
-
+      </tr>`).join('')
     const simpleRowsHTML = simples.map((ms: MatiereStat) => `
       <tr>
         <td><strong>${ms.matiere.nom}</strong></td>
@@ -202,15 +282,38 @@ export default function SynthesePage() {
         <td style="text-align:center">${ms.max ?? '—'}</td>
         <td style="text-align:center">${ms.min ?? '—'}</td>
         <td style="text-align:center;font-weight:700;color:${ms.pctReussite !== null && ms.pctReussite >= 50 ? '#1a6b3a' : '#c0392b'}">${ms.pctReussite !== null ? ms.pctReussite + '%' : '—'}</td>
-      </tr>
-    `).join('')
+      </tr>`).join('')
+
+    const g  = sorted.filter(e => e.sexe === 'G')
+    const f  = sorted.filter(e => e.sexe === 'F')
+    const gAvec = g.filter(e => e.aMoyenne).length
+    const fAvec = f.filter(e => e.aMoyenne).length
+    const gSans = g.filter(e => e.moyenne !== null && !e.aMoyenne).length
+    const fSans = f.filter(e => e.moyenne !== null && !e.aMoyenne).length
+    const gNote = g.filter(e => e.moyenne !== null)
+    const fNote = f.filter(e => e.moyenne !== null)
+    const gTaux = gNote.length ? Math.round((gAvec / gNote.length) * 100) : 0
+    const fTaux = fNote.length ? Math.round((fAvec / fNote.length) * 100) : 0
+
+    const mentionBgMap: Record<string, string> = {
+      'Excellent':'#c3e6cb','Très Bien':'#bee5eb','Bien':'#d4edda',
+      'Assez Bien':'#fff3cd','Passable':'#ffeeba','Insuffisant':'#f8d7da'
+    }
+    const mentionPrintRows = ['Excellent','Très Bien','Bien','Assez Bien','Passable','Insuffisant'].map(lbl => {
+      const count = sorted.filter(e => e.mention?.label === lbl).length
+      if (!count) return ''
+      const bg = mentionBgMap[lbl] ?? '#eee'
+      return `<tr>
+        <td><span style="background:${bg};padding:2px 8px;border-radius:10px;font-size:0.78rem;font-weight:700">${lbl}</span></td>
+        <td style="text-align:center;font-weight:700">${count}</td>
+        <td style="text-align:center">${sorted.length > 0 ? Math.round((count / sorted.length) * 100) : 0}%</td>
+      </tr>`
+    }).join('')
 
     const html = `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8">
 <title>Synthèse — Classe ${niveau}${div} — ${COMPO_LABELS[compo]}</title>
-<style>
-  ${printCSS}
-  .stats-grid { grid-template-columns:repeat(6,1fr); }
-</style></head><body>
+<style>${printCSS} .stats-grid { grid-template-columns:repeat(6,1fr); }</style>
+</head><body>
   <div class="header">
     <div><div style="font-weight:700;color:#1a6b3a">REPUBLIQUE DU SÉNÉGAL</div><div style="font-size:0.78rem;color:#777">Un Peuple — Un But — Une Foi</div></div>
     <div><div class="titre">SYNTHÈSE DE COMPOSITION</div><div class="sous-titre">${COMPO_LABELS[compo]} — Classe <strong>${niveau}${div}</strong></div></div>
@@ -235,6 +338,27 @@ export default function SynthesePage() {
     <thead><tr><th>Matière</th><th style="text-align:center">Moy. classe</th><th style="text-align:center">Max</th><th style="text-align:center">Min</th><th style="text-align:center">% Réussite</th></tr></thead>
     <tbody>${groupeRowsHTML}${simpleRowsHTML}</tbody>
   </table>
+  <h3>👥 Statistiques par élève</h3>
+  <div class="two-col">
+    <table>
+      <thead>
+        <tr><th colspan="5">Répartition Garçons / Filles</th></tr>
+        <tr><th>Sexe</th><th style="text-align:center">Effectif</th><th style="text-align:center">Avec moy.</th><th style="text-align:center">Sans moy.</th><th style="text-align:center">Taux</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>👦 Garçons</td><td style="text-align:center">${g.length}</td><td style="text-align:center;color:#155724;font-weight:700">${gAvec}</td><td style="text-align:center;color:#721c24;font-weight:700">${gSans}</td><td style="text-align:center;font-weight:700;color:${gTaux>=50?'#1a6b3a':'#c0392b'}">${gTaux}%</td></tr>
+        <tr><td>👧 Filles</td><td style="text-align:center">${f.length}</td><td style="text-align:center;color:#155724;font-weight:700">${fAvec}</td><td style="text-align:center;color:#721c24;font-weight:700">${fSans}</td><td style="text-align:center;font-weight:700;color:${fTaux>=50?'#1a6b3a':'#c0392b'}">${fTaux}%</td></tr>
+        <tr style="background:#f0faf5"><td><strong>Total</strong></td><td style="text-align:center"><strong>${sorted.length}</strong></td><td style="text-align:center;color:#155724;font-weight:700">${gAvec+fAvec}</td><td style="text-align:center;color:#721c24;font-weight:700">${gSans+fSans}</td><td style="text-align:center"></td></tr>
+      </tbody>
+    </table>
+    <table>
+      <thead>
+        <tr><th colspan="3">Répartition par mention</th></tr>
+        <tr><th>Mention</th><th style="text-align:center">Nb élèves</th><th style="text-align:center">%</th></tr>
+      </thead>
+      <tbody>${mentionPrintRows}</tbody>
+    </table>
+  </div>
   <div class="footer"><div>Signature du Directeur : _______________________</div><div>Signature du Maître/Maîtresse : _______________________</div></div>
 </body></html>`
 
@@ -242,7 +366,6 @@ export default function SynthesePage() {
     w.document.write(html); w.document.close(); setTimeout(() => w.print(), 400)
   }
 
-  // ── Impression bilan annuel ───────────────────────────────────
   function handlePrintAnnuel() {
     if (!bilanAnnuel) return
 
@@ -276,11 +399,8 @@ export default function SynthesePage() {
 
     const html = `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8">
 <title>Bilan Annuel — Classe ${niveau}${div}</title>
-<style>
-  ${printCSS}
-  .stats-grid { grid-template-columns:repeat(5,1fr); }
-  @media print { @page { size:A4 landscape; margin:1cm; } }
-</style></head><body>
+<style>${printCSS} .stats-grid { grid-template-columns:repeat(5,1fr); } @media print { @page { size:A4 landscape; margin:1cm; } }</style>
+</head><body>
   <div class="header">
     <div><div style="font-weight:700;color:#1a6b3a">REPUBLIQUE DU SÉNÉGAL</div><div style="font-size:0.78rem;color:#777">Un Peuple — Un But — Une Foi</div></div>
     <div><div class="titre">BILAN ANNUEL</div><div class="sous-titre">Année complète — Classe <strong>${niveau}${div}</strong></div></div>
@@ -329,6 +449,13 @@ export default function SynthesePage() {
     ? buildGroupeStats(data.matiereStats)
     : { simples: [], groupes: [] }
 
+  const eleveStats = sorted.length > 0 ? buildEleveStats(sorted) : null
+
+  // ── Stats bilan annuel ──
+  const bilanEleveStats = bilanAnnuel && bilanAnnuel.length > 0
+    ? buildBilanEleveStats(bilanAnnuel)
+    : null
+
   return (
     <Card title="Synthèse de composition">
       <SelectorBar>
@@ -367,7 +494,7 @@ export default function SynthesePage() {
       {(isLoading || isLoadingAnnuel) && <p style={{ color: 'var(--txt2)' }}>Chargement...</p>}
 
       {/* ── Vue composition ── */}
-      {mode === 'compo' && data && !isLoading && (
+      {mode === 'compo' && data && data.stats && !isLoading && (
         <>
           <div style={{ marginBottom: '1rem' }}>
             <span className="badge badge-info" style={{ fontSize: '0.85rem' }}>
@@ -413,7 +540,7 @@ export default function SynthesePage() {
           </div>
 
           <h3 style={{ fontFamily: 'var(--font-playfair)', color: 'var(--vert)', marginBottom: '1rem' }}>📚 Statistiques par matière</h3>
-          <div className="table-wrap">
+          <div className="table-wrap" style={{ marginBottom: '1.5rem' }}>
             <table>
               <thead>
                 <tr><th>Matière</th><th>Moy. classe</th><th>Max</th><th>Min</th><th>% Réussite</th></tr>
@@ -440,6 +567,117 @@ export default function SynthesePage() {
               </tbody>
             </table>
           </div>
+
+          {/* ── Statistiques par élève (compo) ── */}
+          {eleveStats && (
+            <>
+              <h3 style={{ fontFamily: 'var(--font-playfair)', color: 'var(--vert)', marginBottom: '1rem' }}>👥 Statistiques par élève</h3>
+
+              <StatsGrid>
+                <StatCard value={eleveStats.garcons.length} label="Garçons" color="bleu" />
+                <StatCard value={eleveStats.avecMoyenne(eleveStats.garcons).length} label="Garçons avec moy." color="vert" />
+                <StatCard
+                  value={eleveStats.taux(eleveStats.garcons) !== null ? `${eleveStats.taux(eleveStats.garcons)}%` : '—'}
+                  label="Taux réussite garçons" color="vert"
+                />
+                <StatCard value={eleveStats.filles.length} label="Filles" color="violet" />
+                <StatCard value={eleveStats.avecMoyenne(eleveStats.filles).length} label="Filles avec moy." color="vert" />
+                <StatCard
+                  value={eleveStats.taux(eleveStats.filles) !== null ? `${eleveStats.taux(eleveStats.filles)}%` : '—'}
+                  label="Taux réussite filles" color="vert"
+                />
+              </StatsGrid>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '1rem' }}>
+                <div className="table-wrap">
+                  <table>
+                    <thead>
+                      <tr><th colSpan={5}>Répartition Garçons / Filles</th></tr>
+                      <tr>
+                        <th>Sexe</th>
+                        <th style={{ textAlign: 'center' }}>Effectif</th>
+                        <th style={{ textAlign: 'center' }}>Avec moy.</th>
+                        <th style={{ textAlign: 'center' }}>Sans moy.</th>
+                        <th style={{ textAlign: 'center' }}>Taux</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td><strong>👦 Garçons</strong></td>
+                        <td style={{ textAlign: 'center' }}>{eleveStats.garcons.length}</td>
+                        <td style={{ textAlign: 'center' }}>
+                          <span className="badge badge-success">{eleveStats.avecMoyenne(eleveStats.garcons).length}</span>
+                        </td>
+                        <td style={{ textAlign: 'center' }}>
+                          <span className="badge badge-danger">{eleveStats.sansMoyenne(eleveStats.garcons).length}</span>
+                        </td>
+                        <td style={{ textAlign: 'center', fontWeight: 700, color: (eleveStats.taux(eleveStats.garcons) ?? 0) >= 50 ? 'var(--vert)' : '#c0392b' }}>
+                          {eleveStats.taux(eleveStats.garcons) !== null ? `${eleveStats.taux(eleveStats.garcons)}%` : '—'}
+                        </td>
+                      </tr>
+                      <tr>
+                        <td><strong>👧 Filles</strong></td>
+                        <td style={{ textAlign: 'center' }}>{eleveStats.filles.length}</td>
+                        <td style={{ textAlign: 'center' }}>
+                          <span className="badge badge-success">{eleveStats.avecMoyenne(eleveStats.filles).length}</span>
+                        </td>
+                        <td style={{ textAlign: 'center' }}>
+                          <span className="badge badge-danger">{eleveStats.sansMoyenne(eleveStats.filles).length}</span>
+                        </td>
+                        <td style={{ textAlign: 'center', fontWeight: 700, color: (eleveStats.taux(eleveStats.filles) ?? 0) >= 50 ? 'var(--vert)' : '#c0392b' }}>
+                          {eleveStats.taux(eleveStats.filles) !== null ? `${eleveStats.taux(eleveStats.filles)}%` : '—'}
+                        </td>
+                      </tr>
+                      <tr style={{ background: '#f0faf5' }}>
+                        <td><strong>Total</strong></td>
+                        <td style={{ textAlign: 'center' }}><strong>{sorted.length}</strong></td>
+                        <td style={{ textAlign: 'center' }}>
+                          <span className="badge badge-success"><strong>{eleveStats.avecMoyenne(sorted).length}</strong></span>
+                        </td>
+                        <td style={{ textAlign: 'center' }}>
+                          <span className="badge badge-danger"><strong>{eleveStats.sansMoyenne(sorted).length}</strong></span>
+                        </td>
+                        <td style={{ textAlign: 'center' }}>—</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="table-wrap">
+                  <table>
+                    <thead>
+                      <tr><th colSpan={3}>Répartition par mention</th></tr>
+                      <tr>
+                        <th>Mention</th>
+                        <th style={{ textAlign: 'center' }}>Nb élèves</th>
+                        <th style={{ textAlign: 'center' }}>%</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {eleveStats.mentionStats.length > 0
+                        ? eleveStats.mentionStats.map(m => (
+                            <tr key={m.cls}>
+                              <td><span className={`mention ${m.cls}`}>{m.label}</span></td>
+                              <td style={{ textAlign: 'center', fontWeight: 700 }}>{m.count}</td>
+                              <td style={{ textAlign: 'center', color: 'var(--txt2)' }}>
+                                {sorted.length > 0 ? Math.round((m.count / sorted.length) * 100) : 0}%
+                              </td>
+                            </tr>
+                          ))
+                        : (
+                          <tr>
+                            <td colSpan={3} style={{ textAlign: 'center', color: 'var(--txt2)', padding: '1rem' }}>
+                              Aucune note saisie
+                            </td>
+                          </tr>
+                        )
+                      }
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </>
+          )}
         </>
       )}
 
@@ -498,6 +736,253 @@ export default function SynthesePage() {
               </tbody>
             </table>
           </div>
+
+          {/* ── Statistiques par élève (annuel) ── */}
+          {bilanEleveStats && (
+            <>
+              <h3 style={{ fontFamily: 'var(--font-playfair)', color: 'var(--vert)', marginBottom: '1rem', marginTop: '2rem' }}>
+                👥 Statistiques par élève
+              </h3>
+
+              {/* Cards résumé */}
+              <StatsGrid>
+                <StatCard value={bilanEleveStats.garcons.length}                                                                                                           label="Garçons"               color="bleu"   />
+                <StatCard value={bilanEleveStats.admis(bilanEleveStats.garcons).length}                                                                                    label="Garçons admis"          color="vert"   />
+                <StatCard value={bilanEleveStats.tauxAdmission(bilanEleveStats.garcons) !== null ? `${bilanEleveStats.tauxAdmission(bilanEleveStats.garcons)}%` : '—'}    label="Taux admission garçons" color="vert"   />
+                <StatCard value={bilanEleveStats.filles.length}                                                                                                            label="Filles"                 color="violet" />
+                <StatCard value={bilanEleveStats.admis(bilanEleveStats.filles).length}                                                                                     label="Filles admises"         color="vert"   />
+                <StatCard value={bilanEleveStats.tauxAdmission(bilanEleveStats.filles) !== null ? `${bilanEleveStats.tauxAdmission(bilanEleveStats.filles)}%` : '—'}      label="Taux admission filles"  color="vert"   />
+              </StatsGrid>
+
+              {/* Tableaux Garçons/Filles + Décisions */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '1rem' }}>
+
+                {/* Tableau Garçons / Filles */}
+                <div className="table-wrap">
+                  <table>
+                    <thead>
+                      <tr><th colSpan={5}>Répartition Garçons / Filles</th></tr>
+                      <tr>
+                        <th>Sexe</th>
+                        <th style={{ textAlign: 'center' }}>Effectif</th>
+                        <th style={{ textAlign: 'center' }}>Admis</th>
+                        <th style={{ textAlign: 'center' }}>Redoublants</th>
+                        <th style={{ textAlign: 'center' }}>Taux</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td><strong>👦 Garçons</strong></td>
+                        <td style={{ textAlign: 'center' }}>{bilanEleveStats.garcons.length}</td>
+                        <td style={{ textAlign: 'center' }}>
+                          <span className="badge badge-success">{bilanEleveStats.admis(bilanEleveStats.garcons).length}</span>
+                        </td>
+                        <td style={{ textAlign: 'center' }}>
+                          <span className="badge badge-danger">{bilanEleveStats.redouble(bilanEleveStats.garcons).length}</span>
+                        </td>
+                        <td style={{ textAlign: 'center', fontWeight: 700, color: (bilanEleveStats.tauxAdmission(bilanEleveStats.garcons) ?? 0) >= 50 ? 'var(--vert)' : '#c0392b' }}>
+                          {bilanEleveStats.tauxAdmission(bilanEleveStats.garcons) !== null ? `${bilanEleveStats.tauxAdmission(bilanEleveStats.garcons)}%` : '—'}
+                        </td>
+                      </tr>
+                      <tr>
+                        <td><strong>👧 Filles</strong></td>
+                        <td style={{ textAlign: 'center' }}>{bilanEleveStats.filles.length}</td>
+                        <td style={{ textAlign: 'center' }}>
+                          <span className="badge badge-success">{bilanEleveStats.admis(bilanEleveStats.filles).length}</span>
+                        </td>
+                        <td style={{ textAlign: 'center' }}>
+                          <span className="badge badge-danger">{bilanEleveStats.redouble(bilanEleveStats.filles).length}</span>
+                        </td>
+                        <td style={{ textAlign: 'center', fontWeight: 700, color: (bilanEleveStats.tauxAdmission(bilanEleveStats.filles) ?? 0) >= 50 ? 'var(--vert)' : '#c0392b' }}>
+                          {bilanEleveStats.tauxAdmission(bilanEleveStats.filles) !== null ? `${bilanEleveStats.tauxAdmission(bilanEleveStats.filles)}%` : '—'}
+                        </td>
+                      </tr>
+                      <tr style={{ background: '#f0faf5' }}>
+                        <td><strong>Total</strong></td>
+                        <td style={{ textAlign: 'center' }}><strong>{sortedAnnuel.length}</strong></td>
+                        <td style={{ textAlign: 'center' }}>
+                          <span className="badge badge-success"><strong>{bilanEleveStats.admis(sortedAnnuel).length}</strong></span>
+                        </td>
+                        <td style={{ textAlign: 'center' }}>
+                          <span className="badge badge-danger"><strong>{bilanEleveStats.redouble(sortedAnnuel).length}</strong></span>
+                        </td>
+                        <td style={{ textAlign: 'center' }}>—</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Tableau Répartition par décision */}
+                <div className="table-wrap">
+                  <table>
+                    <thead>
+                      <tr><th colSpan={3}>Répartition par décision</th></tr>
+                      <tr>
+                        <th>Décision</th>
+                        <th style={{ textAlign: 'center' }}>Nb élèves</th>
+                        <th style={{ textAlign: 'center' }}>%</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {bilanEleveStats.decisionStats.length > 0
+                        ? bilanEleveStats.decisionStats.map(d => (
+                            <tr key={d.label}>
+                              <td>
+                                <span className={`badge ${d.label.includes('Admis') ? 'badge-success' : 'badge-danger'}`}>
+                                  {d.label.includes('Admis') ? '✅' : '🔄'} {d.label}
+                                </span>
+                              </td>
+                              <td style={{ textAlign: 'center', fontWeight: 700 }}>{d.count}</td>
+                              <td style={{ textAlign: 'center', color: 'var(--txt2)' }}>
+                                {sortedAnnuel.length > 0 ? Math.round((d.count / sortedAnnuel.length) * 100) : 0}%
+                              </td>
+                            </tr>
+                          ))
+                        : (
+                          <tr>
+                            <td colSpan={3} style={{ textAlign: 'center', color: 'var(--txt2)', padding: '1rem' }}>
+                              Aucune décision enregistrée
+                            </td>
+                          </tr>
+                        )
+                      }
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* ── Progression C1 → C2 → C3 ── */}
+              {(bilanEleveStats.avecC1C2.length > 0 || bilanEleveStats.avecC2C3.length > 0) && (
+                <>
+                  <h3 style={{ fontFamily: 'var(--font-playfair)', color: 'var(--vert)', marginBottom: '1rem', marginTop: '2rem' }}>
+                    📈 Progression annuelle C1 → C2 → C3
+                  </h3>
+
+                  {/* Bandeau moyennes par compo */}
+                  <div style={{
+                    display: 'flex', gap: '1rem', alignItems: 'center',
+                    background: '#f0faf5', border: '1px solid #c3e6cb',
+                    borderRadius: '10px', padding: '0.8rem 1.2rem',
+                    marginBottom: '1rem', flexWrap: 'wrap',
+                  }}>
+                    <span style={{ fontSize: '0.82rem', color: 'var(--txt2)', fontWeight: 600 }}>Moyenne de classe :</span>
+                    {bilanEleveStats.moyC1 !== null && (
+                      <span style={{ fontWeight: 700, color: 'var(--vert)', fontSize: '0.9rem' }}>
+                        C1 : <strong>{bilanEleveStats.moyC1}/10</strong>
+                      </span>
+                    )}
+                    {bilanEleveStats.moyC1 !== null && bilanEleveStats.moyC2 !== null && (
+                      <span style={{ color: 'var(--txt2)' }}>→</span>
+                    )}
+                    {bilanEleveStats.moyC2 !== null && (
+                      <span style={{ fontWeight: 700, fontSize: '0.9rem', color: bilanEleveStats.moyC2 >= (bilanEleveStats.moyC1 ?? 0) ? 'var(--vert)' : '#c0392b' }}>
+                        C2 : <strong>{bilanEleveStats.moyC2}/10</strong>
+                        {bilanEleveStats.moyC1 !== null && (
+                          <span style={{ fontSize: '0.75rem', marginLeft: '4px' }}>
+                            {bilanEleveStats.moyC2 > bilanEleveStats.moyC1 ? '▲' : bilanEleveStats.moyC2 < bilanEleveStats.moyC1 ? '▼' : '='}
+                          </span>
+                        )}
+                      </span>
+                    )}
+                    {bilanEleveStats.moyC2 !== null && bilanEleveStats.moyC3 !== null && (
+                      <span style={{ color: 'var(--txt2)' }}>→</span>
+                    )}
+                    {bilanEleveStats.moyC3 !== null && (
+                      <span style={{ fontWeight: 700, fontSize: '0.9rem', color: bilanEleveStats.moyC3 >= (bilanEleveStats.moyC2 ?? 0) ? 'var(--vert)' : '#c0392b' }}>
+                        C3 : <strong>{bilanEleveStats.moyC3}/10</strong>
+                        {bilanEleveStats.moyC2 !== null && (
+                          <span style={{ fontSize: '0.75rem', marginLeft: '4px' }}>
+                            {bilanEleveStats.moyC3 > bilanEleveStats.moyC2 ? '▲' : bilanEleveStats.moyC3 < bilanEleveStats.moyC2 ? '▼' : '='}
+                          </span>
+                        )}
+                      </span>
+                    )}
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+
+                    {/* C1 → C2 */}
+                    {bilanEleveStats.avecC1C2.length > 0 && (
+                      <div className="table-wrap">
+                        <table>
+                          <thead>
+                            <tr><th colSpan={3}>Évolution C1 → C2 ({bilanEleveStats.avecC1C2.length} élèves)</th></tr>
+                            <tr>
+                              <th>Tendance</th>
+                              <th style={{ textAlign: 'center' }}>Nb élèves</th>
+                              <th style={{ textAlign: 'center' }}>%</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr>
+                              <td><span style={{ color: 'var(--vert)', fontWeight: 700 }}>▲ En progression</span></td>
+                              <td style={{ textAlign: 'center', fontWeight: 700 }}>{bilanEleveStats.progressC1C2}</td>
+                              <td style={{ textAlign: 'center', color: 'var(--txt2)' }}>
+                                {Math.round((bilanEleveStats.progressC1C2 / bilanEleveStats.avecC1C2.length) * 100)}%
+                              </td>
+                            </tr>
+                            <tr>
+                              <td><span style={{ color: '#c8972a', fontWeight: 700 }}>= Stable</span></td>
+                              <td style={{ textAlign: 'center', fontWeight: 700 }}>{bilanEleveStats.stableC1C2}</td>
+                              <td style={{ textAlign: 'center', color: 'var(--txt2)' }}>
+                                {Math.round((bilanEleveStats.stableC1C2 / bilanEleveStats.avecC1C2.length) * 100)}%
+                              </td>
+                            </tr>
+                            <tr>
+                              <td><span style={{ color: '#c0392b', fontWeight: 700 }}>▼ En régression</span></td>
+                              <td style={{ textAlign: 'center', fontWeight: 700 }}>{bilanEleveStats.regressC1C2}</td>
+                              <td style={{ textAlign: 'center', color: 'var(--txt2)' }}>
+                                {Math.round((bilanEleveStats.regressC1C2 / bilanEleveStats.avecC1C2.length) * 100)}%
+                              </td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+
+                    {/* C2 → C3 */}
+                    {bilanEleveStats.avecC2C3.length > 0 && (
+                      <div className="table-wrap">
+                        <table>
+                          <thead>
+                            <tr><th colSpan={3}>Évolution C2 → C3 ({bilanEleveStats.avecC2C3.length} élèves)</th></tr>
+                            <tr>
+                              <th>Tendance</th>
+                              <th style={{ textAlign: 'center' }}>Nb élèves</th>
+                              <th style={{ textAlign: 'center' }}>%</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr>
+                              <td><span style={{ color: 'var(--vert)', fontWeight: 700 }}>▲ En progression</span></td>
+                              <td style={{ textAlign: 'center', fontWeight: 700 }}>{bilanEleveStats.progressC2C3}</td>
+                              <td style={{ textAlign: 'center', color: 'var(--txt2)' }}>
+                                {Math.round((bilanEleveStats.progressC2C3 / bilanEleveStats.avecC2C3.length) * 100)}%
+                              </td>
+                            </tr>
+                            <tr>
+                              <td><span style={{ color: '#c8972a', fontWeight: 700 }}>= Stable</span></td>
+                              <td style={{ textAlign: 'center', fontWeight: 700 }}>{bilanEleveStats.stableC2C3}</td>
+                              <td style={{ textAlign: 'center', color: 'var(--txt2)' }}>
+                                {Math.round((bilanEleveStats.stableC2C3 / bilanEleveStats.avecC2C3.length) * 100)}%
+                              </td>
+                            </tr>
+                            <tr>
+                              <td><span style={{ color: '#c0392b', fontWeight: 700 }}>▼ En régression</span></td>
+                              <td style={{ textAlign: 'center', fontWeight: 700 }}>{bilanEleveStats.regressC2C3}</td>
+                              <td style={{ textAlign: 'center', color: 'var(--txt2)' }}>
+                                {Math.round((bilanEleveStats.regressC2C3 / bilanEleveStats.avecC2C3.length) * 100)}%
+                              </td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+            </>
+          )}
         </>
       )}
 
